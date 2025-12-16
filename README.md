@@ -1,0 +1,1 @@
+Code to replicate and build upon the CVCS escapement estimating methods utilizing the Cormack-Jolly-Seber modeling methods established by Trent McDonald in the escapeMR package (now unlisted on CRAN). Still in a working draft form.
