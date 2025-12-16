@@ -1,0 +1,10 @@
+"Model #","Escapement Estimate","QAICc","Capture Model","Survival Model","Model Convergence","Var-Cov Matrix","Estimated C-hat"
+3,1681,172.108690815262,"Intercept","Length","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+6,1740,173.609627605659,"Sex","Length","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+7,2004,176.046480777431,"Length","Sex","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+5,1925,176.731304316634,"Length","Intercept","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+9,1908,180.242280303249,"Length","Length","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+4,1736,181.184122696383,"Sex","Intercept","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+2,1695,181.749418287232,"Intercept","Sex","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+1,1635,181.831591659756,"Intercept","Intercept","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1
+8,1732,183.220777042643,"Sex","Sex","SUCCESS: Convergence criterion met","Covariance from numeric derivatives. SUCCESS: Non-singular covariance matrix.",1

@@ -1,0 +1,2 @@
+install.packages("C:/Users/Your_Name/Downloads/escapemr-master.zip", repos = NULL, type = "source")
+

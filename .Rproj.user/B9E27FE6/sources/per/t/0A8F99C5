@@ -1,0 +1,26 @@
+{
+    "id": "0A8F99C5",
+    "path": "C:/Users/ABarros/Desktop/Analysis/CV CJS/esc_est/scripts/CVCS_functions.R",
+    "project_path": "scripts/CVCS_functions.R",
+    "type": "r_source",
+    "hash": "3768579818",
+    "contents": "",
+    "dirty": false,
+    "created": 1761841011845.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "691,29",
+        "scrollLine": "682"
+    },
+    "folds": "10|53|30|0|\n35|26|138|0|\n143|68|206|0|\n164|26|201|2|\n208|57|210|0|\n215|33|240|0|\n245|56|263|0|\n268|54|285|0|\n290|37|304|0|\n324|42|476|0|\n479|40|559|0|\n564|40|604|0|\n607|48|660|0|\n838|96|910|0|\n",
+    "lastKnownWriteTime": 1761844579,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1761848533676,
+    "read_only": false,
+    "read_only_alternatives": []
+}

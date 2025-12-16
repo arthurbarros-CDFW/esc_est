@@ -1,0 +1,12 @@
+#sturgeon testing
+library(tidyverse)
+library(escapeMR)
+library(Rcpp)
+sourceCpp('scripts/CJS_functions.cpp')
+source("scripts/CVCS_functions.R")
+
+results<-CJS_run()
+write.csv(results,paste("outputs/optim_results",Sys.Date(),".csv",sep=""))
+
+CJSscript()
+
