@@ -1,0 +1,254 @@
+##########################################
+#cjs_fit
+##########################################
+#inputs:
+#nan=number of animals or records
+#ns=number of surveys
+#ic=the capture history (nan*ns)
+#ng= 1= number of parameters, based on group value from F.cjs.estim?
+#however, in the esc_model.R script they don't assign group
+#so in Trents work, group defaults to rep(1,nan) and ng=1
+#ig=dimensions of groups=rep(1, nan)
+
+#outputs:
+#chigt=total chi-squared
+#vif=c_hat, measure of overdispersion=chigt/idfgt
+#idfgt=degrees of freedom for test
+#ic=ch
+
+cjs_fit <- function(nan, ns, ic, ng, ig) {
+  # Constants
+  chat_rot <- 5  #c_hat "rule of thumb"
+  
+  #initialize outputs
+  vif <- 1.0
+  chigt <- 0.0
+  idfgt <- 0
+  
+  #test 2 "group by group"
+  #this is artifact from MRA, probably not necessary but keeping
+  #test 2 and 3 are covered in Amstrup et al handbook 2005
+  
+  for (l in 1:ng) {
+    #initialize matrix array
+    nang <- 0
+    relese <- integer(ns)
+    m <- matrix(0, nrow = ns, ncol = ns)
+    
+    #compute matrix array
+    #this is essentially the chi-squared contingency table
+    #amstrup 2005 page 236
+    for (i in 1:nan) {
+      if (ig[i] == l) {
+        nang <- nang + 1
+        for (j in 1:(ns-1)) {
+          if (ic[i, j] >= 1) {
+            relese[j] <- relese[j] + 1
+            for (k in (j+1):ns) {
+              if (ic[i, k] >= 1) {
+                m[j, k] <- m[j, k] + 1
+                break
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (nang > 0) {
+      test2_result <- cjs_test2(ns, m, chat_rot) #run test2 function
+      chigt <- chigt + test2_result$chitot
+      idfgt <- idfgt + test2_result$idftot
+    }
+  }
+  
+  #test 3 group by group
+  for (l in 1:ng) {
+    #calculate resight and subsequent components for releases 2 to NS-1
+    for (j in 2:(ns-1)) {
+      #initialize components for contingency table
+      n11 <- n12 <- n21 <- n22 <- 0
+      m11 <- m12 <- m21 <- m22 <- 0
+      
+      for (i in 1:nan) {
+        if (ig[i] == l && ic[i, j] >= 1) {
+          #calculate IB (how many times was animal seen before j)
+          ib <- sum(ic[i, 1:(j-1)])
+          
+          #calculate IA (how many times was animal seen after j)
+          ia <- sum(ic[i, (j+1):ns])
+          
+          #counts for R component (resighting)
+          if (ib > 0 && ia > 0) {
+            n11 <- n11 + 1
+          } else if (ib > 0 && ia == 0) {
+            n12 <- n12 + 1
+          } else if (ib == 0 && ia > 0) {
+            n21 <- n21 + 1
+          } else {
+            n22 <- n22 + 1
+          }
+          
+          #counts for S component (subsequent components?) (only if j < ns-1)
+          if (j < ns-1) {
+            if (ib > 0 && ic[i, j+1] >= 1) {
+              m11 <- m11 + 1
+            } else if (ib > 0 && ia > 0) {
+              m12 <- m12 + 1
+            } else if (ib == 0 && ic[i, j+1] >= 1) {
+              m21 <- m21 + 1
+            } else if (ib == 0 && ia > 0) {
+              m22 <- m22 + 1
+            }
+          }
+        }
+      }
+      
+      #chi-squared for resight component
+      iuser <- 1
+      r1 <- n11 + n12
+      r2 <- n21 + n22
+      c1 <- n11 + n21
+      c2 <- n12 + n22
+      
+      if (r1 < chat_rot || r2 < chat_rot || c1 < chat_rot || c2 < chat_rot) {
+        iuser <- 0
+      }
+      
+      tot <- r1 + r2
+      if (r1 == 0 || r2 == 0 || c1 == 0 || c2 == 0) {
+        compr <- 0.0
+        idfr <- 0
+      } else {
+        e11 <- r1 * c1 / tot
+        e12 <- r1 * c2 / tot
+        e21 <- r2 * c1 / tot
+        e22 <- r2 * c2 / tot
+        compr <- (n11 - e11)^2 / e11 + (n12 - e12)^2 / e12 + 
+          (n21 - e21)^2 / e21 + (n22 - e22)^2 / e22
+        idfr <- 1
+      }
+      
+      # Chi-squared for S component
+      iuses <- 1
+      r1 <- m11 + m12
+      r2 <- m21 + m22
+      c1 <- m11 + m21
+      c2 <- m12 + m22
+      
+      if (r1 < chat_rot || r2 < chat_rot || c1 < chat_rot || c2 < chat_rot) {
+        iuses <- 0
+      }
+      
+      tot <- r1 + r2
+      if (r1 == 0 || r2 == 0 || c1 == 0 || c2 == 0) {
+        comps <- 0.0
+        idfs <- 0
+      } else {
+        e11 <- r1 * c1 / tot
+        e12 <- r1 * c2 / tot
+        e21 <- r2 * c1 / tot
+        e22 <- r2 * c2 / tot
+        comps <- (m11 - e11)^2 / e11 + (m12 - e12)^2 / e12 + 
+          (m21 - e21)^2 / e21 + (m22 - e22)^2 / e22
+        idfs <- 1
+      }
+      
+      chigt <- chigt + compr * iuser + comps * iuses
+      idfgt <- idfgt + idfr * iuser + idfs * iuses
+    }
+  }
+  
+  #calculate variance inflation factor (remember vif=c_hat)
+  if (idfgt > 0) {
+    vif <- chigt / idfgt
+    vif <- max(vif, 1.0)
+  } else {
+    vif <- 1.0
+  }
+  
+  return(list(vif = vif, chigt = chigt, idfgt = idfgt))
+}
+
+#helper function for TEST2
+cjs_test2 <- function(ns, m, chat_rot) {
+  # Initialize outputs
+  iuse <- integer(ns)
+  idf <- integer(ns)
+  chisq <- numeric(ns)
+  chitot <- 0.0
+  idftot <- 0
+  
+  #exit test2 if not possible
+  if (ns < 4) {
+    return(list(chisq = chisq, idf = idf, chitot = chitot, idftot = idftot))
+  }
+  
+  #compute components one by one
+  for (l in 2:(ns-2)) {
+    iuse[l] <- 1
+    
+    #find frequencies for contingency table
+    n <- matrix(0, nrow = 2, ncol = ns)
+    for (j in (l+1):ns) {
+      n[1, j] <- sum(m[1:(l-1), j])
+      n[2, j] <- m[l, j]
+    }
+    
+    #find row and column totals
+    r <- numeric(2)
+    c <- numeric(ns)
+    
+    for (i in 1:2) {
+      r[i] <- sum(n[i, (l+1):ns])
+    }
+    
+    for (j in (l+1):ns) {
+      c[j] <- sum(n[, j])
+    }
+    
+    tot <- sum(r)
+    
+    #check minimum counts
+    if (r[1] < chat_rot || r[2] < chat_rot) {
+      iuse[l] <- 0
+    }
+    
+    for (j in (l+1):ns) {
+      if (c[j] < chat_rot) {
+        iuse[l] <- 0
+      }
+    }
+    
+    #calculate chi-squared
+    if (r[1] <= 0 || r[2] <= 0) {
+      chisq[l] <- 0.0
+      idf[l] <- 0
+    } else {
+      chisq[l] <- 0.0
+      idf[l] <- ns - l - 1
+      
+      for (j in (l+1):ns) {
+        if (c[j] <= 0) {
+          idf[l] <- idf[l] - 1
+        } else {
+          for (i in 1:2) {
+            exp <- r[i] * c[j] / tot
+            chisq[l] <- chisq[l] + (n[i, j] - exp)^2 / exp
+          }
+        }
+      }
+      
+      if (idf[l] <= 0) {
+        idf[l] <- 0
+        chisq[l] <- 0.0
+        iuse[l] <- 0
+      }
+    }
+    
+    chitot <- chitot + chisq[l] * iuse[l]
+    idftot <- idftot + idf[l] * iuse[l]
+  }
+  
+  return(list(chisq = chisq, idf = idf, chitot = chitot, idftot = idftot))
+}

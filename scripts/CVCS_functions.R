@@ -54,6 +54,46 @@ CJS_data_prep<-function(){
                          multiple = FALSE, title = "Do you have COVARIATE data?")
   if(covars.ask == "YES"){
     covars<-read.csv(choose.files(caption="Select your COVARIATE data (.csv file)"), head=T, as.is=T)
+    #standardize field names
+    names(covars) <- tolower(names(covars))
+    
+    if( nrow(covars) < nrow(ch) ){
+      dropcovars.ask<-select.list(c(	"YES", 
+                                "NO"), 
+                             graphics = FALSE, 
+                             multiple = FALSE, title = "The number of covariate records does not match the number of capture history records. Would you like to drop capture history records missing covariate records?")
+      if(dropcovars.ask == "YES"){
+        missing_in_covars <- ch$disctag[!ch$disctag %in% covars$disctag]
+        ch<-ch%>%
+          filter(disctag!=missing_in_covars)
+      } else {
+        stop("Number of covariate records must be the same as the number of capture history records")
+      }
+    } else if(nrow(covars)>nrow(ch)){
+      stop("Number of covariate records must be the same as the number of capture history records")
+    }
+    
+    #check covars for na values
+    if(any(is.na(covars$length))){
+      missing_lengths<-covars%>%filter(is.null(length)|is.na(length))
+      message(paste("Found", sum(is.na(covars$length)), 
+                    "NA values in length. These rows will be removed."))
+      # Remove rows with NA length
+      covars <- covars%>%filter(!disctag %in% missing_lengths$disctag)
+      
+      # Also remove corresponding rows from ch
+      ch <- ch%>%filter(!disctag %in% missing_lengths$disctag)
+    }
+    if(any(is.na(covars$sex))){
+      missing_sex<-covars%>%filter(is.null(sex)|is.na(sex))
+      message(paste("Found", sum(is.na(covars$sex)), 
+                    "NA values in sex. These rows will be removed."))
+      # Remove rows with NA length
+      covars <- covars%>%filter(!disctag %in% missing_sex$disctag)
+      
+      # Also remove corresponding rows from ch
+      ch <- ch%>%filter(!disctag %in% missing_sex$disctag)
+    }
   } else {
     sex <- NULL
     length <- NULL
@@ -74,13 +114,36 @@ CJS_data_prep<-function(){
     ints <- unlist(ints)  # must be a vector, not a data frame
     # at this point ch may have other columns in it
     if( length(ints) != (ncol(ch)-2) ){
-      stop("Number of time intervals must be 1 less than number of occasions")
+      stop("Number of time intervals must be 1 less than number of sampling occasions")
     }
     if( any(ints == 0) ){
       stop("Zero time intervals are not allowed.")
     }
   } else {
     ints = rep(1,ncol(ch)-2)
+  }
+  
+  #ask about subsampling
+  #this is driven by LAR having to subsample every other fish in high return years
+  sampling.unequal <- select.list(c("YES",
+                              "NO"),
+                            multiple = FALSE,
+                            graphics = FALSE, 
+                            title = "Where there any periods when subsampling was performed?")
+  if(sampling.unequal == "YES"){
+    sub.sampling = read.csv(choose.files(caption="Select the file containing records of subsampling (.csv file)"),
+                    head=T, as.is=T)
+    sub.sampling <- sub.sampling[,grep("[0-9]",names(sub.sampling))]
+    sub.sampling <- unlist(sub.sampling)  # must be a vector, not a data frame
+    # at this point ch may have other columns in it
+    if( length(sub.sampling) != (ncol(ch)-1) ){
+      stop("Number of records must equal number of sampling periods.")
+    }
+    if( any(ints == 0) ){
+      stop("Zero sampling periods is not allowed.")
+    }
+  } else {
+    sub.sampling = rep(1,ncol(ch)-1)
   }
   
   #Part 2: prepare ch and covars data
@@ -92,7 +155,11 @@ CJS_data_prep<-function(){
     covars$length<-as.numeric(covars$length)
   }
   
-  #Part 3: prep chops data
+  #Part 3: deal with subsampling periods
+  tagged_per_week<-colSums(ch>=1,na.rm=T)
+  observed_per_week <- tagged_per_week*sub.sampling
+  
+  #Part 4: prep chops data
   if(chops.ask == "YES"){
     chops<-chops[-1]
     clean_chops<-matrix(ncol=ncol(chops))
@@ -107,7 +174,7 @@ CJS_data_prep<-function(){
     colnames(clean_chops)<-colnames(ch)
   }
   
-  #Part 4: generate covariate data for chops
+  #Part 5: generate covariate data for chops
   #here we'll do things differently than the escapeMR app
   #instead of taking the mean values for sex and length and assigning them to chops
   #we will randomly sample existing covars and assign to chop data
@@ -135,11 +202,15 @@ CJS_data_prep<-function(){
   
   return(list('ch'=ch,'lengths_matrix'=lengths_matrix,
               'sex_matrix'=sex_matrix,"intervals"=ints,
-              'covars_ask'=covars.ask))
+              'covars_ask'=covars.ask,
+              'tagged_per_week'=tagged_per_week,
+              'observed_per_week'=observed_per_week,
+              'sampling.unequal'=sampling.unequal,
+              'subsampling_weeks'=sub.sampling))
 }
 
 ##########################################
-#Model_fit
+#CJS_model_select
 ##########################################
 CJS_model_select<-function(covars.ask,sex_matrix,lengths_matrix,ch){
   models = c(	"constant capture and survival rates",
@@ -213,17 +284,24 @@ CJS_loglik_wrapper <- function(beta, cap_X, surv_X, ch) {
 ##########################################
 #B_star
 ##########################################
-B_star<-function(ch,s_hat,p_hat){
+B_star<-function(ch,s_hat,p_hat,
+                 subsampling_weeks,observed_per_week,tagged_per_week){
   R=n=list()
   nan=nrow(ch)
   ns=ncol(ch)
   for(j in 1:ns){
-    d<-ch #select just the capture matrix data
-    R[j]<-as.numeric(length(which(d[j]==1)))
-    n[j]<-as.numeric(length(which(d[j]==1))+length(which(d[j]==2)))
+    R[j]<-as.numeric(length(which(ch[j]==1))) #carcasses released with tags
+    
+    if(!is.null(observed_per_week) && j<=length(observed_per_week)){
+      n[j] <- observed_per_week[j] #incorporate subsampling if applicable
+    } else {
+      n[j]<-as.numeric(length(which(ch[j]==1))+length(which(ch[j]==2))) #total captured carcasses
+    }
   }
   
-  N_hat<-Horvitz_Thompson(p_hat,ch)
+  N_hat<-Horvitz_Thompson(p_hat,ch,subsampling_weeks,
+                          observed_per_week,
+                          tagged_per_week)
   #next B1, or total number of births for each period
   B1<-list()
   for(j in 2:(ns-2)){
@@ -266,7 +344,9 @@ fill_prob_matrices<-function(ch,beta,cap_X,surv_X,ints){
 ##########################################
 #Total escapement
 ##########################################
-total_escapement<-function(ch,beta,cap_X,surv_X,ints){
+total_escapement<-function(ch,beta,cap_X,surv_X,ints,
+                           subsampling_weeks,observed_per_week,
+                           tagged_per_week){
   
   p_hat<-fill_prob_matrices(ch,beta,
                             cap_X,
@@ -275,9 +355,12 @@ total_escapement<-function(ch,beta,cap_X,surv_X,ints){
                             cap_X ,
                             surv_X,ints)$s_hat
   
-  N_hat=Horvitz_Thompson(p_hat,ch)
+  N_hat=Horvitz_Thompson(p_hat,ch,subsampling_weeks,
+                         observed_per_week,
+                         tagged_per_week)
   
-  Bstar=B_star(ch,s_hat,p_hat)
+  Bstar=B_star(ch,s_hat,p_hat,
+               subsampling_weeks,observed_per_week,tagged_per_week)
   
   escapement<-N_hat[[2]]*(log(mean(s_hat[,1]))/(mean(s_hat[,1])-1)) + 
     sum(Bstar,na.rm=T)
@@ -288,7 +371,9 @@ total_escapement<-function(ch,beta,cap_X,surv_X,ints){
 ##########################################
 #Horvitz_Thompson
 ##########################################
-Horvitz_Thompson<-function(p_hat,ch){
+Horvitz_Thompson<-function(p_hat,ch,
+                           subsampling_weeks,observed_per_week,
+                           tagged_per_week){
   nan=nrow(ch)
   ns=ncol(ch)
   N_hat<-list()
@@ -299,264 +384,25 @@ Horvitz_Thompson<-function(p_hat,ch){
         1/p_hat[[i,j]]
       } else {0}
     }
-    N_hat[[j]]=sum(n_mat[,j])
+    N_tagged<- sum(n_mat[, j], na.rm = TRUE)
+    
+    #if this is a subsampled week, adjust for skipped carcasses
+    if(subsampling_weeks[j]>1){
+      if(observed_per_week[j]>tagged_per_week[j]){
+        skipped_count<-observed_per_week[j]-tagged_per_week[j]
+        skipped_contribution<-matrix()
+        for(s in 1:skipped_count){
+          #for each skipped carcass, sample from p_hat and use to estimate the skipped contribution
+          p_imputed<-sample(p_hat[,j],1)#sample by column j in case we eventuality figure out time covariates
+          skipped_contribution[s]<-1/p_imputed
+        }
+      }
+      N_hat[[j]]=N_tagged+sum(skipped_contribution)
+    }else{
+      N_hat[[j]]=N_tagged
+    }
   }
   return(N_hat)
-}
-
-##########################################
-#cjs_fit
-##########################################
-#inputs:
-#nan=number of animals or records
-#ns=number of surveys
-#ic=the capture history (nan*ns)
-#ng= 1= number of parameters, based on group value from F.cjs.estim?
-#however, in the esc_model.R script they don't assign group
-#so in Trents work, group defaults to rep(1,nan) and ng=1
-#ig=dimensions of groups=rep(1, nan)
-
-#outputs:
-#chigt=total chi-squared
-#vif=c_hat, measure of overdispersion=chigt/idfgt
-#idfgt=degrees of freedom for test
-#ic=ch
-
-cjs_fit <- function(nan, ns, ic, ng, ig) {
-  # Constants
-  chat_rot <- 5  #c_hat "rule of thumb"
-  
-  #initialize outputs
-  vif <- 1.0
-  chigt <- 0.0
-  idfgt <- 0
-  
-  #test 2 "group by group"
-  #this is artifact from MRA, probably not necessary but keeping
-  #test 2 and 3 are covered in Amstrup et al handbook 2005
-  
-  for (l in 1:ng) {
-    #initialize matrix array
-    nang <- 0
-    relese <- integer(ns)
-    m <- matrix(0, nrow = ns, ncol = ns)
-    
-    #compute matrix array
-    #this is essentially the chi-squared contingency table
-    #amstrup 2005 page 236
-    for (i in 1:nan) {
-      if (ig[i] == l) {
-        nang <- nang + 1
-        for (j in 1:(ns-1)) {
-          if (ic[i, j] >= 1) {
-            relese[j] <- relese[j] + 1
-            for (k in (j+1):ns) {
-              if (ic[i, k] >= 1) {
-                m[j, k] <- m[j, k] + 1
-                break
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    if (nang > 0) {
-      test2_result <- cjs_test2(ns, m, chat_rot) #run test2 function
-      chigt <- chigt + test2_result$chitot
-      idfgt <- idfgt + test2_result$idftot
-    }
-  }
-  
-  #test 3 group by group
-  for (l in 1:ng) {
-    #calculate resight and subsequent components for releases 2 to NS-1
-    for (j in 2:(ns-1)) {
-      #initialize components for contingency table
-      n11 <- n12 <- n21 <- n22 <- 0
-      m11 <- m12 <- m21 <- m22 <- 0
-      
-      for (i in 1:nan) {
-        if (ig[i] == l && ic[i, j] >= 1) {
-          #calculate IB (how many times was animal seen before j)
-          ib <- sum(ic[i, 1:(j-1)])
-          
-          #calculate IA (how many times was animal seen after j)
-          ia <- sum(ic[i, (j+1):ns])
-          
-          #counts for R component (resighting)
-          if (ib > 0 && ia > 0) {
-            n11 <- n11 + 1
-          } else if (ib > 0 && ia == 0) {
-            n12 <- n12 + 1
-          } else if (ib == 0 && ia > 0) {
-            n21 <- n21 + 1
-          } else {
-            n22 <- n22 + 1
-          }
-          
-          #counts for S component (subsequent components?) (only if j < ns-1)
-          if (j < ns-1) {
-            if (ib > 0 && ic[i, j+1] >= 1) {
-              m11 <- m11 + 1
-            } else if (ib > 0 && ia > 0) {
-              m12 <- m12 + 1
-            } else if (ib == 0 && ic[i, j+1] >= 1) {
-              m21 <- m21 + 1
-            } else if (ib == 0 && ia > 0) {
-              m22 <- m22 + 1
-            }
-          }
-        }
-      }
-      
-      #chi-squared for resight component
-      iuser <- 1
-      r1 <- n11 + n12
-      r2 <- n21 + n22
-      c1 <- n11 + n21
-      c2 <- n12 + n22
-      
-      if (r1 < chat_rot || r2 < chat_rot || c1 < chat_rot || c2 < chat_rot) {
-        iuser <- 0
-      }
-      
-      tot <- r1 + r2
-      if (r1 == 0 || r2 == 0 || c1 == 0 || c2 == 0) {
-        compr <- 0.0
-        idfr <- 0
-      } else {
-        e11 <- r1 * c1 / tot
-        e12 <- r1 * c2 / tot
-        e21 <- r2 * c1 / tot
-        e22 <- r2 * c2 / tot
-        compr <- (n11 - e11)^2 / e11 + (n12 - e12)^2 / e12 + 
-          (n21 - e21)^2 / e21 + (n22 - e22)^2 / e22
-        idfr <- 1
-      }
-      
-      # Chi-squared for S component
-      iuses <- 1
-      r1 <- m11 + m12
-      r2 <- m21 + m22
-      c1 <- m11 + m21
-      c2 <- m12 + m22
-      
-      if (r1 < chat_rot || r2 < chat_rot || c1 < chat_rot || c2 < chat_rot) {
-        iuses <- 0
-      }
-      
-      tot <- r1 + r2
-      if (r1 == 0 || r2 == 0 || c1 == 0 || c2 == 0) {
-        comps <- 0.0
-        idfs <- 0
-      } else {
-        e11 <- r1 * c1 / tot
-        e12 <- r1 * c2 / tot
-        e21 <- r2 * c1 / tot
-        e22 <- r2 * c2 / tot
-        comps <- (m11 - e11)^2 / e11 + (m12 - e12)^2 / e12 + 
-          (m21 - e21)^2 / e21 + (m22 - e22)^2 / e22
-        idfs <- 1
-      }
-      
-      chigt <- chigt + compr * iuser + comps * iuses
-      idfgt <- idfgt + idfr * iuser + idfs * iuses
-    }
-  }
-  
-  #calculate variance inflation factor (remember vif=c_hat)
-  if (idfgt > 0) {
-    vif <- chigt / idfgt
-    vif <- max(vif, 1.0)
-  } else {
-    vif <- 1.0
-  }
-  
-  return(list(vif = vif, chigt = chigt, idfgt = idfgt))
-}
-
-#helper function for TEST2
-cjs_test2 <- function(ns, m, chat_rot) {
-  # Initialize outputs
-  iuse <- integer(ns)
-  idf <- integer(ns)
-  chisq <- numeric(ns)
-  chitot <- 0.0
-  idftot <- 0
-  
-  #exit test2 if not possible
-  if (ns < 4) {
-    return(list(chisq = chisq, idf = idf, chitot = chitot, idftot = idftot))
-  }
-  
-  #compute components one by one
-  for (l in 2:(ns-2)) {
-    iuse[l] <- 1
-    
-    #find frequencies for contingency table
-    n <- matrix(0, nrow = 2, ncol = ns)
-    for (j in (l+1):ns) {
-      n[1, j] <- sum(m[1:(l-1), j])
-      n[2, j] <- m[l, j]
-    }
-    
-    #find row and column totals
-    r <- numeric(2)
-    c <- numeric(ns)
-    
-    for (i in 1:2) {
-      r[i] <- sum(n[i, (l+1):ns])
-    }
-    
-    for (j in (l+1):ns) {
-      c[j] <- sum(n[, j])
-    }
-    
-    tot <- sum(r)
-    
-    #check minimum counts
-    if (r[1] < chat_rot || r[2] < chat_rot) {
-      iuse[l] <- 0
-    }
-    
-    for (j in (l+1):ns) {
-      if (c[j] < chat_rot) {
-        iuse[l] <- 0
-      }
-    }
-    
-    #calculate chi-squared
-    if (r[1] <= 0 || r[2] <= 0) {
-      chisq[l] <- 0.0
-      idf[l] <- 0
-    } else {
-      chisq[l] <- 0.0
-      idf[l] <- ns - l - 1
-      
-      for (j in (l+1):ns) {
-        if (c[j] <= 0) {
-          idf[l] <- idf[l] - 1
-        } else {
-          for (i in 1:2) {
-            exp <- r[i] * c[j] / tot
-            chisq[l] <- chisq[l] + (n[i, j] - exp)^2 / exp
-          }
-        }
-      }
-      
-      if (idf[l] <= 0) {
-        idf[l] <- 0
-        chisq[l] <- 0.0
-        iuse[l] <- 0
-      }
-    }
-    
-    chitot <- chitot + chisq[l] * iuse[l]
-    idftot <- idftot + idf[l] * iuse[l]
-  }
-  
-  return(list(chisq = chisq, idf = idf, chitot = chitot, idftot = idftot))
 }
 
 ##########################################
@@ -605,6 +451,8 @@ get_bootstrap_iterations <- function() {
 }
 
 CJS_bootstrap<-function(iterations,ch,cap_X,surv_X,ints,
+                        subsampling_weeks,observed_per_week,
+                        tagged_per_week,
                         progress_callback=NULL){
   #Part 1: set initial values
   results<-data.frame()
@@ -641,7 +489,9 @@ CJS_bootstrap<-function(iterations,ch,cap_X,surv_X,ints,
                                    iter_beta,
                                    cap_X_iteration,
                                    surv_X_iteration,
-                                   ints)
+                                   ints,
+                                   subsampling_weeks,observed_per_week,
+                                   tagged_per_week)
     
     iter_end<-Sys.time()
     iter_time<-iter_end-iter_start
@@ -697,6 +547,7 @@ CJS_run<-function(){
                 prepped_data$lengths_matrix,
                 prepped_data$ch)
   
+  
   n_boot<-get_bootstrap_iterations()
   
   c_hat = 1
@@ -730,7 +581,10 @@ CJS_run<-function(){
                                      beta=optim_results$par,
                                      cap_X=model_fit$cap_X[[i]],
                                      surv_X=model_fit$surv_X[[i]],
-                                     ints=as.matrix(prepped_data$intervals))
+                                     ints=as.matrix(prepped_data$intervals),
+                                     subsampling_weeks=prepped_data$subsampling_weeks,
+                                     observed_per_week=prepped_data$observed_per_week,
+                                     tagged_per_week=prepped_data$tagged_per_week)
     
     ch=prepped_data$ch
     beta=optim_results$par
@@ -775,7 +629,10 @@ CJS_run<-function(){
                                   ch=ic,
                                   cap_X=model_fit$cap_X[[i]],
                                   surv_X=model_fit$surv_X[[i]],
-                                  ints=prepped_data$intervals)
+                                  ints=prepped_data$intervals,
+                                  subsampling_weeks=prepped_data$subsampling_weeks,
+                                  observed_per_week=prepped_data$observed_per_week,
+                                  tagged_per_week=prepped_data$tagged_per_week)
       boot_end<-Sys.time()
       boot_speed=boot_end-boot_start
       #confidence intervals
@@ -833,7 +690,7 @@ CJS_run<-function(){
 }
 
 ##########################################
-#model selection for shiny ap
+#model selection for shiny app
 ##########################################
 #wrapper function for 
 CJS_model_select_app <- function(covars_used, sex_matrix, lengths_matrix, ch, selected_models) {
