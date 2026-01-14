@@ -10,4 +10,4 @@ source("scripts/CVCS_functions.R")
 
 results<-CJS_run()
 
-CJSscript()
+#CJSscript()

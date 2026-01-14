@@ -1,0 +1,2 @@
+"est_escapement","optim_speed","cap_beta1","cap_beta2","surv_beta1","surv_beta2","loglik","model","AIC","AICc","QAIC","QAICC","c_hat","lower_ci","upper_ci","n_boot","boot_speed","delta_AIC","delta_AICc","AIC_weight","AICc_weight"
+63308.3143226601,1.10454376538595,-0.841849579692528,-0.510102753286944,-1.46598274155237,0.00218169253844494,875.887432610352,"capture related to sex and survival related to length",1759.7748652207,1759.77702376585,1759.7748652207,1759.77702376585,1,55851,73412,1000,15.9658716949489,0,0,1,1
