@@ -4,3 +4,4 @@ Updates since October 2024:
 2) Incorporated a 'CJS_run()' function to streamline the data loading, model selection, bootstrapping, and output of model results.
 3) Ran multiple tests using carcass survey data from various years and sources to compare outputs, and model failure, between these methods and the escapeMR/MRA approach.
 4) Currently working on incorporating model fit tests (AIC, QAICC), which is a work in progress.
+5) Added subsampling functionality to deal with surveys that need to subsample carcasses due to high escapement.
