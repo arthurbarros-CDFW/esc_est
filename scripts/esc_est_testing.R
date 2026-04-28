@@ -11,3 +11,4 @@ source("scripts/CVCS_functions.R")
 results<-CJS_run()
 
 #CJSscript()
+ch<-read.csv('data/demo_CH.csv')

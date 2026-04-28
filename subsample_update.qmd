@@ -1,0 +1,193 @@
+---
+title: "Incorporating Subsampling in CVCS Carcass Surveys"
+author: 
+  name: "Arthur Barros"
+  email: "Arthur.Barros@wildlife.ca.gov"
+date: '`r Sys.Date()`'
+format: 
+  pdf:
+    fig-pos: "H"
+    code-block-border-left: false
+    cite-method: biblatex
+    keep_tex: yes
+editor: visual
+bibliography: references/references.bib
+link-citations: TRUE
+---
+
+```{r setup, include=FALSE}
+rm( list = ls()) #clear env
+library(knitr)
+library(tinytex)
+library(tidyverse)
+```
+
+This document describes updates to the `esc_est` scripts that incorporate changes to handle carcass subsampling during escapement surveys. During periods with exceptionally high adult returns, survey teams may be unable to process all carcasses in a timely manner. During these periods subsampling of carcasses may be implemented to reduce processing time in which every other carcass encountered is measured and tagged, while the skipped carcasses are only counted. This situation occured most recently during the fall-run surveys in December 2025, when very high escapement occurred on the Lower American River and prompted the use of subsampling.
+
+The last time subsampling methods were implemented on the Lower American River was 2013, and while it was documented in the annual report, the methodology was not preserved for future use. The escapeMR package (<https://gitlab.com/tmcd/escapemr>), written by Trent McDonald, Ph.D., and widely utilized by CDFW surveys to estimate escapement, does not include functionality to handle subsampling. This document outlines methods and reasoning for adjusting the estimation process to include subsampling when producing seasonal escapement estimates.
+
+::: callout-note
+## Note
+
+At the time of writing, the CJS methods and scripts are undergoing major updates and changes that have not yet been formally documented. These updates include:
+
+-   Incorporating uneven sampling intervals into the data processing, modeling, and escapement estimates.
+
+-   Consolidating all scripts into a streamlined `CJS_run()` wrapper function that prompts users for data inputs.
+
+-   Enabling selection and comparison of different models and model fit comparisons reports.
+
+An updated and complete modeling methods document will be produced once an initial packaged release of the `esc_est` functions is available.
+:::
+
+## Data Preparation
+
+To account for subsampling implementation in the carcass surveys, a new data input `sub.sampling` was created that provides a record of each survey period and it's subsampling expansion. The `"demo_Subsampling.csv"` file in the `"data/"` folder is a provided example:
+
+```{r}
+library(tidyverse)
+subsampling<-read.csv('data/demo_Subsampling.csv')
+subsampling
+```
+
+For our example subsampling data, each field represents a given survey period (typically a week) and the value is its expansion factor. For example a normal sampling week has a value of 1 while a week in which every other encountered carcass is sampled has a value of 2.
+
+The `CJS_data_prep()` function now prompts the user for subsampling data and saves it as the `sub.sampling` data frame. The function also includes some validation and relevant error messages to ensure that the length of `subsampling` matches the number of survey periods in the capture history data.
+
+```{r,eval=F}
+  sampling.unequal <- select.list(c("YES",
+                              "NO"),
+                            multiple = FALSE,
+                            graphics = FALSE, 
+                            title = "Where there any periods when subsampling was performed?")
+  if(sampling.unequal == "YES"){
+    sub.sampling = read.csv(choose.files(caption="Select the file containing records of subsampling (.csv file)"),
+                    head=T, as.is=T)
+    sub.sampling <- sub.sampling[,grep("[0-9]",names(sub.sampling))]
+    sub.sampling <- unlist(sub.sampling)  # must be a vector, not a data frame
+    # at this point ch may have other columns in it
+    if( length(sub.sampling) != (ncol(ch)-1) ){
+      stop("Number of records must equal number of sampling periods.")
+    }
+    if( any(ints == 0) ){
+      stop("Zero sampling periods is not allowed.")
+    }
+  } else {
+    sub.sampling = rep(1,ncol(ch)-1)
+  }
+```
+
+The `CJS_data_prep()` function then creates a `tagged_per_week` vector that calculates the number of carcasses tagged each week, and an `observed_per_week` vector that calculates the number of carcasses observed in total, including those carcasses that were skipped during subsampling.
+
+```{r,eval=F}
+#Part 3: deal with subsampling periods
+  tagged_per_week<-colSums(ch>=1,na.rm=T)
+  observed_per_week <- tagged_per_week*sub.sampling
+```
+
+## Horvitz-Thompson Estimator
+
+After the relevant subsample data is prepared and calculated, subsampling is next incorporated in the estimate of total escapement for each survey period. Recall the Horvitz-Thompson estimator [@Horvitz1952; @Nichols2005] is used to estimate escapement for a given survey period:
+
+$$
+\hat{N_j}=\sum_{i=1}^{n}\frac{h_{ij}}{\hat{p}_{ij}}
+$$ {#eq-horvitz_thompson}
+
+Where $h_{ij}$ is either a 0 or 1 capture indicator for carcass $i$ at period $j$, and $n$ is the number of all carcasses observed over all survey periods.
+
+Below is the update to the `Horvitz_Thompson()` function that new `subsampling_week`, `observed_weeks`, and `tagged_per_week` produced by the data preparation function. For each `subsampling_week` that has a value greater than `1` we estimate the the contribution of skipped fish by randomly sampling from the available values of $\hat{p}_j$ . The contribution of each skipped carcass is then included with the tagged carcasses in the final estimate of $\hat{N}_j$.
+
+```{r,eval=FALSE}
+Horvitz_Thompson<-function(p_hat,ch,
+                           subsampling_weeks,observed_per_week,
+                           tagged_per_week){
+  nan=nrow(ch)
+  ns=ncol(ch)
+  N_hat<-list()
+  n_mat<-matrix(NA,nan,ns)
+  for(j in 1:ns){
+    for(i in 1:nan){
+      n_mat[[i,j]]<-if(ch[[i,j]]>=1){
+        1/p_hat[[i,j]]
+      } else {0}
+    }
+    N_tagged<- sum(n_mat[, j], na.rm = TRUE)
+    
+    #if this is a subsampled week, adjust for skipped carcasses
+    if(subsampling_weeks[j]>1){
+      if(observed_per_week[j]>tagged_per_week[j]){
+        skipped_count<-observed_per_week[j]-tagged_per_week[j]
+        skipped_contribution<-matrix()
+        for(s in 1:skipped_count){
+          #for each skipped carcass, sample from p_hat and use to
+          #estimate the skipped contribution
+          p_imputed<-sample(p_hat[,j],1)
+          skipped_contribution[s]<-1/p_imputed
+        }
+      }
+      N_hat[[j]]=N_tagged+sum(skipped_contribution)
+    }else{
+      N_hat[[j]]=N_tagged
+    }
+  }
+  return(N_hat)
+}
+```
+
+## Integration with "Birth" Estimation
+
+After $\hat{N}_j$ is estimated using the Horvitz-Thompson equation the `B_star()` function has been updated to integrate subsampling methods as well. The `B_star()` function improves upon the Horvitz-Thompson estimate as a *superpopulation* modification [@Ryan2013] to estimate total escapement:
+
+$$ \hat{N}_{escapement}=\hat{N}_2\frac{ln(\tilde{\phi}_1)}{\tilde{\phi}_1-1}+B_2^*+B_3^*+...+B_{S-2}^* $$
+
+Where $S$ is the total number of all sampling occasions and $B_j^*$, the adjusted number of "births" (new adults entering the system and dying) between $j$ and $j+1$, is:
+
+$$ B_j^* = \tilde{B}_j\frac{ln(\tilde{\phi}_j)}{\tilde{\phi}_1-1} $$
+
+$\tilde{B}_j$ is the total "births" for period $j$:
+
+$$ \tilde{B}_j=\hat{N}_{j+1} - \tilde{\phi}_{j}[\hat{N}_j-(n_j-R_j)] $$
+
+and $R_j$ is the number of carcasses released with disctags during period $j$, $n_j$ is the number of carcasses captured during period $j$, and $\hat{N}_j$ is the estimate of abundance during period $j$ derived from the Horvitz-Thompson estimator in @eq-horvitz_thompson.
+
+The new updated function integrates the `observed_per_week` values produced in the data preparation step:
+
+```{r}
+B_star<-function(ch,s_hat,p_hat,
+                 subsampling_weeks,observed_per_week,tagged_per_week){
+  R=n=list()
+  nan=nrow(ch)
+  ns=ncol(ch)
+  for(j in 1:ns){
+    R[j]<-as.numeric(length(which(ch[j]==1))) #carcasses released with tags
+    
+    if(!is.null(observed_per_week) && j<=length(observed_per_week)){
+      n[j] <- observed_per_week[j] #incorporate subsampling if applicable
+    } else {
+      n[j]<-as.numeric(length(which(ch[j]==1))+length(which(ch[j]==2))) #total captured carcasses
+    }
+  }
+  
+  N_hat<-Horvitz_Thompson(p_hat,ch,subsampling_weeks,
+                          observed_per_week,
+                          tagged_per_week)
+  #next B1, or total number of births for each period
+  B1<-list()
+  for(j in 2:(ns-2)){
+    B1[j]<-N_hat[[j+1]]-mean(s_hat[,j])*(N_hat[[j]]-(n[[j]]-R[[j]]))
+  }
+  
+  #next Bstar, number of births adjusted for those entering the system between
+  #j and j+1, but not surviving to j+1
+  Bstar<-NULL
+  for(j in 2:(ns-2)){
+    Bstar[j]<-as.numeric(B1[[j]]*(log(mean(s_hat[,j]))/(mean(s_hat[,j])-1)))
+  }
+  Bstar<-Bstar[-(1)]
+  return(Bstar)
+}
+```
+
+Once $\hat{N}_{escapement}$ is estimated, the `subsampling_weeks`, `observed_per_week`, and `tagged_per_week` vectors are also passed to the `CJS_boostrap()` function to ensure consistency across bootstrapping iterations.
+
+This approach ensures flexibility by allowing different subsampling ratios for each survey period, uses random sampling of detection probabilities in a non-parametric manner, and maintain consistency across the modeling and bootstrapping pipeline.
