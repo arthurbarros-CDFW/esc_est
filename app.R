@@ -1,11 +1,17 @@
+# app.R
+# CDFW Escapement Estimator
+# for carcass mark-recapture surveys
+
 library(shiny)
 library(tidyverse)
 library(ggplot2)
 library(shinythemes)
 library(Rcpp)
 library(DT)
-sourceCpp('CJS_functions.cpp')
-source("CVCS_functions.R")
+
+#load functions
+sapply(list.files("scripts/functions", pattern = "\\.R$", full.names = TRUE), source)
+sourceCpp('scripts/CJS_functions.cpp')
 
 #define the ui
 ui <- fluidPage(
@@ -15,6 +21,10 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
+      
+      #################
+      #file inputs
+      #################
       #cap history input
       fileInput("ch_input", "Upload Capture History (CSV)*",
                 accept = c(".csv")),
@@ -43,11 +53,21 @@ ui <- fluidPage(
                   accept = c(".csv"))
       ),
       
-      # Help text
+      #subsampling input
+      checkboxInput("use_subsampling", "Was any subsampling conducted?", value = FALSE),
+      conditionalPanel(
+        condition = "input.use_subsampling == true",
+        fileInput("subsampling_input", "Upload Subsampling File (CSV)",
+                  accept = c(".csv"))
+      ),
+      
+      #help text
       helpText("* Required field"),
       helpText("Note: All files should be in CSV format with headers."),
       
+      #################
       #model selection
+      #################
       conditionalPanel(
         condition = "input.use_cov == true",
         checkboxGroupInput("use_model", "Select one or more model",
@@ -62,33 +82,39 @@ ui <- fluidPage(
                               "capture related to length and survival related to length"))
       ),
       
-      #enter number of bootstrap reps
-      h5(HTML("<b> Boostrap for confidence intervals?<b>")),
-      checkboxInput("use_boots", "Y/N", value = FALSE),
-      conditionalPanel(
-        condition = "input.use_boots == true",
-        numericInput("boot_input", "Enter a number of bootstrap replications to perform",
-                     10,min=10,max=1000),
-        helpText("Enter numeric value between 10 - 1000")
-      ),
-      
-      
-      # Action button to run analysis
-      actionButton("run_models", "Run CJS model", 
+      #button to run analysis
+      actionButton("run_models", "run CJS models", 
                    class = "btn-primary")
       
       
     ),
     
+    #################
+    #main panel
+    #################
     mainPanel(
-      h4("Data Summary:"),
-      verbatimTextOutput("file_summary"),
-      
-      h4("Model Output:"),
-      verbatimTextOutput("model_output"),
-      
-      # Tabs for different outputs
+
+      #tabs for outputs
       tabsetPanel(
+        tabPanel("Model Results",
+                 uiOutput("model_results"),
+                 #enter number of bootstrap reps
+                 h4(strong("Boostrap for confidence intervals?")),
+                 checkboxInput("use_boots", "Y/N", value = FALSE),
+                 conditionalPanel(
+                   condition = "input.use_boots == true",
+                   numericInput("boot_input", "Enter a number of bootstrap replications to perform",
+                                10,min=10,max=1000),
+                   helpText("Enter numeric value between 10 - 1000")
+                 ),
+                 actionButton("run_selected_models",
+                              "Estimate Escapement",
+                              class = "btn-primary")
+                 ),
+        tabPanel("Escapement Plot", 
+                 plotOutput("p_esc",height = "400px"),
+                 downloadButton("download_esc_plot", "Download Plot")
+                 ),
         tabPanel("Data Preview", 
                  dataTableOutput("ch_preview"),
                  conditionalPanel(
@@ -98,17 +124,22 @@ ui <- fluidPage(
                  conditionalPanel(
                    condition = "input.use_cov == true",
                    dataTableOutput("cov_preview")
-                 )),
-        tabPanel("Model Results", dataTableOutput("model_results"))
+                 ))
       )
     )
+    
+    #################
   )
 )
 
+#################
 #server side
+#################
 server <- function(input, output, session) {
   
+  #################
   #reactive value to store uploaded data
+  #################
   uploaded_data <- reactiveValues(
     ch = NULL,
     chop = NULL,
@@ -137,6 +168,15 @@ server <- function(input, output, session) {
       uploaded_data$ints_input <- read.csv(input$ints_input$datapath)
     } else {
       uploaded_data$ints_input <- NULL
+    }
+  })
+  
+  observe({
+    if(input$use_subsampling) {
+      req(input$subsampling_input)
+      uploaded_data$subsampling_input <- read.csv(input$subsampling_input$datapath)
+    } else {
+      uploaded_data$subsampling_input <- NULL
     }
   })
   
@@ -174,6 +214,19 @@ server <- function(input, output, session) {
       ints <- rep(1, ncol(ch)-1)  # Default to equal intervals
     }
     
+    #handle subsampling
+    if(input$use_subsampling && !is.null(uploaded_data$subsampling_input)){
+      sub.sampling<-uploaded_data$subsampling_input
+      sub.sampling <- sub.sampling[,grep("[0-9]",names(sub.sampling))]
+      sub.sampling <- unlist(sub.sampling)  # must be a vector, not a data frame
+      # at this point ch may have other columns in it
+      if( length(sub.sampling) != (ncol(ch)-1) ){
+        stop("Number of records must equal number of sampling periods.")
+      }
+    } else {
+      sub.sampling = rep(1,ncol(ch)-1)
+    }
+    
     #prepare ch and covar data
     ch=ch[-1]
     null_matrix<-matrix(1,nrow=nrow(ch),ncol=ncol(ch))
@@ -182,6 +235,10 @@ server <- function(input, output, session) {
     if(input$use_cov && !is.null(covars)){
       covars$sex <- as.numeric(ifelse(covars$sex %in% c('F', "f"), 1, 0))
     }
+    
+    #prepare tagged and observed_per_week for total_escapement()
+    tagged_per_week<-colSums(ch>=1,na.rm=T)
+    observed_per_week <- tagged_per_week*sub.sampling
     
     #prepare chops data
     if(input$use_chop && !is.null(chops)){
@@ -224,7 +281,7 @@ server <- function(input, output, session) {
       sex_matrix <- null_matrix
     }
     
-    # Prepare model covariates based on selected models
+    #prepare model covariates based on selected models
     model_data <- CJS_model_select_app(
       covars_used = input$use_cov,
       sex_matrix = sex_matrix,
@@ -242,11 +299,16 @@ server <- function(input, output, session) {
       'intervals' = ints,
       'covars_used' = input$use_cov,
       'chops_used' = input$use_chop,
-      'model_data' = model_data
+      'model_data' = model_data,
+      'tagged_per_week'=tagged_per_week,
+      'observed_per_week'=observed_per_week,
+      'subsampling_weeks'=sub.sampling
     )
   })
   
-  # Data previews
+  #########################
+  #data previews
+  #########################
   output$ch_preview <- renderDT({
     (uploaded_data$ch)
   })
@@ -263,7 +325,9 @@ server <- function(input, output, session) {
     }
   })
   
+  #########################
   #run CJS model when button pressed
+  #########################
   observeEvent(input$run_models,{
     req(prepare_data())
     prepped_data <- prepare_data()
@@ -291,6 +355,11 @@ server <- function(input, output, session) {
     
     #access model data
     model_data <- prepped_data$model_data
+    
+    #pull subsampling data
+    subsampling_weeks<-prepped_data$subsampling_weeks
+    observed_per_week<-prepped_data$observed_per_week
+    tagged_per_week<-prepped_data$tagged_per_week
     
     #display 
     output$model_output <- renderPrint({
@@ -330,7 +399,10 @@ server <- function(input, output, session) {
                                        optim_results$par,
                                        model_data$cap_X[[i]],
                                        model_data$surv_X[[i]],
-                                       ints=intervals)
+                                       ints=intervals,
+                                       subsampling_weeks=subsampling_weeks,
+                                       observed_per_week=observed_per_week,
+                                       tagged_per_week=tagged_per_week)
       
       ######################################################
       #calculate model fit statistics (aic, qaic, qaicc)
@@ -340,20 +412,20 @@ server <- function(input, output, session) {
       nan=nrow(ic)
       ns=ncol(ic)
       
-      fit_results<-cjs_fit(nan,ns,ic,ng=1,ig=rep(1, nan))
-      df<-fit_results$idfgt
-      c_hat<-fit_results$vif
-      #AIC needs to be calculated for each model separatly
-      #but QAIC needs to be done outside of this after all AIC is calc
-      #reference Amstrup et al Handbook
-      AIC=2*loglik+2*df
+      fit_results <- cjs_fit_simple(ch=prepped_data$ch,
+                                    beta=optim_results$par,
+                                    cap_X=model_data$cap_X[[i]],
+                                    surv_X=model_data$surv_X[[i]],
+                                    ints=intervals)
+
+      c_hat<-fit_results
       
-      #AICC is corrected for small samples (<40 per parameter)
-      AICC=AIC+((2*df)*(df+1))/(nan-df-1)
+      n_params<-length(beta)
       
-      #QAIC
-      QAIC=(2*loglik)/c_hat+(2*df)
-      QAICC=QAIC+(2*df*(df+1))/(nan-df-1)
+      AIC=2*loglik+2*n_params
+      AICc=AIC+((2*n_params)*(n_params+1))/(nan-n_params-1)
+      QAIC=((2*loglik)/c_hat)+(2*n_params)
+      QAICC=QAIC+(2*n_params*(n_params+1))/(nan-n_params-1)
       
       if(input$use_boots == TRUE && input$boot_input!=0){
         
@@ -366,13 +438,16 @@ server <- function(input, output, session) {
         
         boot_start<-Sys.time()
         
-        # Add bootstrap progress updates
+        #add bootstrap progress updates
         withProgress(message = 'Running bootstrap...', value = 0, {
           boot_results<-CJS_bootstrap(input$boot_input,
                                       ic,
                                       model_data$cap_X[[i]],
                                       model_data$surv_X[[i]],
                                       ints=intervals,
+                                      subsampling_weeks=subsampling_weeks,
+                                      observed_per_week=observed_per_week,
+                                      tagged_per_week=tagged_per_week,
                                       progress_callback = function(iter) {
                                         incProgress(1/input$boot_input, 
                                                     detail = paste("Bootstrap iteration", iter))
@@ -393,16 +468,19 @@ server <- function(input, output, session) {
         
       }
       
-      d<-data.frame(est_escapement,
-                    optim_speed,
+      d<-data.frame("escapement"=ceiling(est_escapement$escapement),
+                    "optim_speed"=round(optim_speed,2),
                     cap_beta1=signif(optim_results$par[1],3),
                     cap_beta2=signif(optim_results$par[2],3),
                     surv_beta1=signif(optim_results$par[3],3),
                     surv_beta2=signif(optim_results$par[4],3),
                     loglik=signif(loglik,3),
                     model=model_data$models_ran[i],
-                    QAICC=signif(QAICC,3),
-                    c_hat=signif(c_hat,3)
+                    "AIC"=signif(AIC,3),
+                    "AICc"=signif(AICc,3),
+                    "QAIC"=signif(QAIC,3),
+                    "QAICC"=signif(QAICC,3),
+                    "c_hat"=signif(c_hat,3)
       )
       if(input$boot_input!=0 && input$use_boots==T){
         d<-data.frame(d,lower_ci=ci$lower_ci,
@@ -413,14 +491,14 @@ server <- function(input, output, session) {
       model_results<-model_results%>%
         rbind(d)
       
-      # Update progress to show model completed
+      #update progress
       progress$set(
         value = i/total_models,
         detail = paste("Completed Model:", current_model)
       )
     }
     
-    # Final update when all models are done
+    #final progress update
     progress$set(
       value = 1,
       detail = "All models processed!"
@@ -432,7 +510,51 @@ server <- function(input, output, session) {
     })
 
   })
+  
+  observeEvent(input$run_selected_models,{
+    if(input$use_boots == TRUE && input$boot_input!=0){
+      
+      #update progress for bootstrap
+      progress$set(
+        message = paste("Processing Model", model_list[i]),
+        detail = paste("Bootstrapping Model:", i),
+        value = (i-0.5)/total_models
+      )
+      
+      boot_start<-Sys.time()
+      
+      #add bootstrap progress updates
+      withProgress(message = 'Running bootstrap...', value = 0, {
+        boot_results<-CJS_bootstrap(input$boot_input,
+                                    ic,
+                                    model_data$cap_X[[i]],
+                                    model_data$surv_X[[i]],
+                                    ints=intervals,
+                                    subsampling_weeks=subsampling_weeks,
+                                    observed_per_week=observed_per_week,
+                                    tagged_per_week=tagged_per_week,
+                                    progress_callback = function(iter) {
+                                      incProgress(1/input$boot_input, 
+                                                  detail = paste("Bootstrap iteration", iter))
+                                    })
+      })
+      boot_end<-Sys.time()
+      boot_speed=boot_end-boot_start
+      #confidence intervals
+      conf.level = 95
+      alpha = 1 - conf.level/100
+      lower = alpha/2
+      upper = 1 - alpha/2
+      mid=.5
+      ci<-boot_results%>%
+        summarise(lower_ci=ceiling(quantile(escapement,probs = c(lower),na.rm=T)),
+                  mid_ci=ceiling(quantile(escapement,probs = c(mid),na.rm=T)),
+                  upper_ci=ceiling(quantile(escapement,probs = c(upper),na.rm=T)))
+      
+    }
+  })
+  
 }
 
-# Run the application
+#run the app
 shinyApp(ui = ui, server = server)

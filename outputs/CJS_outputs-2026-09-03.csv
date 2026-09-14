@@ -1,0 +1,2 @@
+"est_escapement","optim_speed","cap_beta1","cap_beta2","surv_beta1","surv_beta2","loglik","model","AIC","AICc","QAIC","QAICC","c_hat","delta_AIC","delta_AICc","AIC_weight","AICc_weight"
+573.652194097062,0.295660972595215,-1.17536906000106,-1.17536906000106,0.865289613705662,0.865289613705663,88.8002543558936,"constant capture and survival rates",185.600508711787,185.870778982057,89.9503015442985,90.2205718145687,2.16717334000028,0,0,1,1

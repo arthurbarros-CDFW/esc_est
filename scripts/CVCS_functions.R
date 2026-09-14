@@ -788,7 +788,7 @@ CJS_model_select_app <- function(covars_used, sex_matrix, lengths_matrix, ch, se
 
 cjs_fit <- function(ch, beta, cap_X, surv_X, ints, min_expected = 1) {
   
-  # Calculate fitted probabilities from your model
+  #calculate fitted probabilities from your model
   prob_matrices <- fill_prob_matrices(ch, beta, cap_X, surv_X, ints)
   p_hat <- prob_matrices$p_hat
   s_hat <- prob_matrices$s_hat
@@ -820,7 +820,7 @@ cjs_fit <- function(ch, beta, cap_X, surv_X, ints, min_expected = 1) {
     }
   }
   
-  # Create EXPECTED m-array from model predictions
+  #create EXPECTED m-array from model predictions
   m_exp <- matrix(0, nrow = ns, ncol = ns)
   
   for (j in 1:(ns-1)) {
@@ -846,7 +846,7 @@ cjs_fit <- function(ch, beta, cap_X, surv_X, ints, min_expected = 1) {
     }
   }
   
-  # Calculate Test 2 chi-square
+  #calculate Test 2 chi-square
   chi_sq_2 <- 0
   df_2 <- 0
   
