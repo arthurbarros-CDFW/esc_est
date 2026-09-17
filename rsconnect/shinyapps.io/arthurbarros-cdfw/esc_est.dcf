@@ -1,0 +1,12 @@
+name: esc_est
+title: esc_est
+username: arthurbarros-cdfw
+account: arthurbarros-cdfw
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17943745
+bundleId: 12569940
+url: https://arthurbarros-cdfw.shinyapps.io/esc_est/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

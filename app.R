@@ -7,6 +7,7 @@ library(tidyverse)
 library(ggplot2)
 library(shinythemes)
 library(Rcpp)
+library(RcppArmadillo)
 library(DT)
 
 #load functions
@@ -97,24 +98,25 @@ ui <- fluidPage(
       #tabs for outputs
       tabsetPanel(
         tabPanel("Model Results",
-                 uiOutput("model_reports"),
+                 dataTableOutput("model_reports"),
                  conditionalPanel(
                    condition="output.model_ready == true",
                    #enter number of bootstrap reps
                    h4(strong("Boostrap for confidence intervals?")),
-                   checkboxInput("use_boots", "Y/N", value = FALSE)
+                   checkboxInput("use_boots", "Y/N", value = FALSE),
+                   actionButton("run_selected_model",
+                                "Estimate Escapement",
+                                class = "btn-primary"),
+                   textOutput("model_selected"),
                  ),
                  conditionalPanel(
                    condition = "input.use_boots == true",
                    numericInput("boot_input", "Enter a number of bootstrap replications to perform",
-                                10,min=10,max=1000),
+                                100,min=10,max=1000),
                    helpText("Enter numeric value between 10 - 1000")
-                 ),
-                 actionButton("run_selected_model",
-                              "Estimate Escapement",
-                              class = "btn-primary")
-                 ),
-        tabPanel("Escapement Plot", 
+                 )),
+        tabPanel("Escapement Results", 
+                 textOutput("esc_text"),
                  plotOutput("p_esc",height = "400px"),
                  downloadButton("download_esc_plot", "Download Plot")
                  ),
@@ -150,9 +152,10 @@ server <- function(input, output, session) {
     ints = NULL
   )
   
+  plot_escapement<-reactiveVal(NULL)
   model_reports<-reactiveVal(NULL)
-  
   selected_model<-reactiveVal(NULL)
+  results_text<-reactiveVal(NULL)
   
   #observe file uploads
   observe({
@@ -434,9 +437,9 @@ server <- function(input, output, session) {
       d<-data.frame(#"escapement"=ceiling(est_escapement$escapement),
                     model=model_list[i],
                     "optim_speed"=round(optim_speed,2),
-                    "AIC"=signif(AIC,3),
+                    #"AIC"=signif(AIC,3),
                     "AICc"=signif(AICc,3),
-                    "QAIC"=signif(QAIC,3),
+                    #"QAIC"=signif(QAIC,3),
                     "QAICC"=signif(QAICC,3),
                     cap_beta1=signif(optim_results$par[1],3),
                     cap_beta2=signif(optim_results$par[2],3),
@@ -459,7 +462,7 @@ server <- function(input, output, session) {
     
     default_selected<-model_results[1, ,drop=FALSE]
     
-    selected_models(default_selected)
+    selected_model(default_selected)
     
     #final progress update
     progress$set(
@@ -472,81 +475,119 @@ server <- function(input, output, session) {
   ###########################  
   #display model reports
   ###########################  
-  output$model_reports <- renderUI({
+  
+  output$model_reports <- renderDT({
     req(model_reports())
-
-    model_data<-model_reports()
+    
+    model_data<-as.data.frame(model_reports())
     model_data<-model_data[order(model_data$QAICC),]
-      
-    #store model data in a separate reactive value to avoid re-rendering
-    output_table<-renderDT({
-      #format columns
-      numeric_cols<-which(sapply(model_data,is.numeric))
-      
-      #determine which row is currently selected
-      selected_row <- 1  #default to first row
-      
-      datatable(
-        model_data,
-        options=list(
-          pageLength=10,
-          autoWidth=TRUE,
-          dom="Bfrtip",
-          scrollX=TRUE,
-          columnDefs=list(
-            list(className="dt-center",targets='_all'),
-            list(width = "200px", targets = 0) #set width of 1st col
-            )
-          ),
-          rownames = FALSE,
-          selection = list(mode = 'single', selected = selected_row),
-          class = 'display compact stripe hover'
-        )%>%
-          formatRound(columns = numeric_cols, digits = 3)
-      })
     
-    return(output_table)
+    #format columns
+    numeric_cols<-which(sapply(model_data,is.numeric))
+      
+    #determine which row is currently selected
+    selected_row <- 1  #default to first row
+      
+    datatable(
+      model_data,
+      options=list(
+        pageLength=10,
+        autoWidth=TRUE,
+        dom="Bfrtip",
+        scrollX=TRUE,
+        columnDefs=list(
+          list(className="dt-center",targets='_all'),
+          list(width = "200px", targets = 0) #set width of 1st col
+        )
+      ),
+      rownames = FALSE,
+      selection = list(mode = 'single', selected = selected_row),
+      class = 'display compact stripe hover'
+    )%>%
+      formatRound(columns = numeric_cols, digits = 3)
     
-  })
+ })
   
   #########################
-  #observe selected model
+  #pull selected model
   #########################
-
+  selected_row <- reactive({ 
+    req(input$model_reports_rows_selected) 
+    model_data <- as.data.frame(model_reports()) 
+    model_data <- model_data[order(model_data$QAICC), ]
+    model_data[input$model_reports_rows_selected, , drop = FALSE] 
+  }) 
+  
   
   #########################
-  #select models and run bootstraps
+  #use selected models to run bootstraps
   #########################
   observeEvent(input$run_selected_model,{
     
-    model_data<-model_reports()
+    model_list<-c(	"constant capture and survival rates",
+                   "constant capture rate and survival related to sex",
+                   "constant capture rate and survival related to length",
+                   "capture related to sex and constant survival rate",
+                   "capture related to length and constant survival rate",
+                   "capture related to sex and survival related to length",
+                   "capture related to length and survival related to sex",
+                   "capture related to sex and survival related to sex",
+                   "capture related to length and survival related to length")
+    
+    prepped_data <- prepare_data()
+    selected_model<-selected_row()
+    
+    
+    model_data<-prepped_data$model_data
+    
+    #get escapement model inputs
+    
+    model_name<-selected_model$model
+    
+    model_index <- match(model_name, model_list)
+    
+    cap_X_sel  <- prepped_data$model_data$cap_X[[model_index]]
+    surv_X_sel <- prepped_data$model_data$surv_X[[model_index]]
+    
+    beta<-c("cap_beta1"=selected_model$cap_beta1,
+            "cap_beta2"=selected_model$cap_beta2,
+            "surv_beta1"=selected_model$surv_beta1,
+            "surv_beta2"= selected_model$surv_beta2)
+    
+    intervals <- if(!is.null(prepped_data$intervals)) {
+      as.numeric(prepped_data$intervals)
+    } else {
+      rep(1, ncol(prepped_data$ch)-1)
+    }
+    
+    #pull subsampling data
+    subsampling_weeks<-prepped_data$subsampling_weeks
+    observed_per_week<-prepped_data$observed_per_week
+    tagged_per_week<-prepped_data$tagged_per_week
+    
+    ans<-total_escapement(model_data$ch,
+                          beta,
+                          cap_X_sel,
+                          surv_X_sel,
+                          ints=intervals,
+                          subsampling_weeks=subsampling_weeks,
+                          observed_per_week=observed_per_week,
+                          tagged_per_week=tagged_per_week)
+    
+    est_escapement<-round(ans$escapement[1],2)
+    
+    results_text(paste("Estimated Escapement: ",est_escapement))
     
     if(input$use_boots == TRUE && input$boot_input!=0){
       
-      #update progress for bootstrap
-      progress$set(
-        message = paste("Processing Model", model_list[i]),
-        detail = paste("Bootstrapping Model:", i),
-        value = (i-0.5)/total_models
-      )
-      
       boot_start<-Sys.time()
-      
-      est_escapement<-total_escapement(model_data$ch,
-                                       optim_results$par,
-                                       model_data$cap_X[[i]],
-                                       model_data$surv_X[[i]],
-                                       ints=intervals,
-                                       subsampling_weeks=subsampling_weeks,
-                                       observed_per_week=observed_per_week,
-                                       tagged_per_week=tagged_per_week)
       
       #add bootstrap progress updates
       withProgress(message = 'Running bootstrap...', value = 0, {
         boot_results<-CJS_bootstrap(input$boot_input,
-                                    ic,
-                                    model_data$cap_X[[i]],
-                                    model_data$surv_X[[i]],
+                                    model_data$ch,
+                                    cap_X_sel,
+                                    surv_X_sel,
                                     ints=intervals,
                                     subsampling_weeks=subsampling_weeks,
                                     observed_per_week=observed_per_week,
@@ -564,19 +605,50 @@ server <- function(input, output, session) {
       lower = alpha/2
       upper = 1 - alpha/2
       mid=.5
+      
       ci<-boot_results%>%
         summarise(lower_ci=ceiling(quantile(escapement,probs = c(lower),na.rm=T)),
                   mid_ci=ceiling(quantile(escapement,probs = c(mid),na.rm=T)),
                   upper_ci=ceiling(quantile(escapement,probs = c(upper),na.rm=T)))
       
+      esc_p<-ggplot(boot_results,aes(x=escapement))+
+        geom_histogram(color = "#000000", fill = "#0099F8")+
+        geom_segment(data=ci,aes(x=lower_ci,xend=lower_ci,y=0,yend=Inf),
+                     linewidth=1,linetype='dashed')+
+        geom_segment(data=ci,aes(x=upper_ci,xend=upper_ci,y=0,yend=Inf),
+                     linewidth=1,linetype='dashed')+
+        geom_segment(data=ci,aes(x=est_escapement,
+                                 xend=est_escapement,y=0,yend=Inf),
+                     linewidth=1,linetype='dashed',color='red')+
+        #scale_x_continuous(breaks = seq(0,10000,500)) +
+        labs(y = "Frequency")+
+        theme_classic()
+      
+      plot_escapement(esc_p)
+      
     }
     
-    if(input$boot_input!=0 && input$use_boots==T){
-      d<-data.frame(d,lower_ci=ci$lower_ci,
-                    upper_ci=ci$upper_ci,
-                    input$boot_input,
-                    boot_speed)
-    }
+    
+  })
+  
+  #render p_esc
+  output$p_esc <- renderPlot({
+    req(plot_escapement())
+    print(plot_escapement())
+  })
+  
+  #render esc_text
+  output$esc_text<-renderText({
+    req(results_text())
+    print(results_text())
+  })
+  
+  #render model_selected
+  output$model_selected<-renderText({
+    req(selected_row)
+    selected_model<-selected_row()
+    model_name<-selected_model$model
+    print(paste("Run model: ",model_name,sep=""))
   })
   
 }
