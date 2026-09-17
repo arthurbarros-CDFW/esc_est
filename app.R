@@ -72,8 +72,8 @@ ui <- fluidPage(
         condition = "input.use_cov == true",
         checkboxGroupInput("use_model", "Select one or more model",
                            c(	"constant capture and survival rates",
-                              "constant capture rate and survival related the sex",
-                              "constant capture rate and survival related the length",
+                              "constant capture rate and survival related to sex",
+                              "constant capture rate and survival related to length",
                               "capture related to sex and constant survival rate",
                               "capture related to length and constant survival rate",
                               "capture related to sex and survival related to length",
@@ -97,17 +97,20 @@ ui <- fluidPage(
       #tabs for outputs
       tabsetPanel(
         tabPanel("Model Results",
-                 uiOutput("model_results"),
-                 #enter number of bootstrap reps
-                 h4(strong("Boostrap for confidence intervals?")),
-                 checkboxInput("use_boots", "Y/N", value = FALSE),
+                 uiOutput("model_reports"),
+                 conditionalPanel(
+                   condition="output.model_ready == true",
+                   #enter number of bootstrap reps
+                   h4(strong("Boostrap for confidence intervals?")),
+                   checkboxInput("use_boots", "Y/N", value = FALSE)
+                 ),
                  conditionalPanel(
                    condition = "input.use_boots == true",
                    numericInput("boot_input", "Enter a number of bootstrap replications to perform",
                                 10,min=10,max=1000),
                    helpText("Enter numeric value between 10 - 1000")
                  ),
-                 actionButton("run_selected_models",
+                 actionButton("run_selected_model",
                               "Estimate Escapement",
                               class = "btn-primary")
                  ),
@@ -146,6 +149,10 @@ server <- function(input, output, session) {
     cov = NULL,
     ints = NULL
   )
+  
+  model_reports<-reactiveVal(NULL)
+  
+  selected_model<-reactiveVal(NULL)
   
   #observe file uploads
   observe({
@@ -189,6 +196,12 @@ server <- function(input, output, session) {
     }
   })
   
+  output$model_ready <- reactive({
+    !is.null(model_reports())
+  })
+  
+  outputOptions(output, "model_ready", suspendWhenHidden = FALSE)
+  
   #########################
   #data preparation
   #########################
@@ -211,7 +224,7 @@ server <- function(input, output, session) {
         ints <- rep(1, ncol(ch)-1)
       }
     } else {
-      ints <- rep(1, ncol(ch)-1)  # Default to equal intervals
+      ints <- rep(1, ncol(ch)-1)  #equal intervals
     }
     
     #handle subsampling
@@ -333,8 +346,8 @@ server <- function(input, output, session) {
     prepped_data <- prepare_data()
     
     model_list<-c(	"constant capture and survival rates",
-                   "constant capture rate and survival related the sex",
-                   "constant capture rate and survival related the length",
+                   "constant capture rate and survival related to sex",
+                   "constant capture rate and survival related to length",
                    "capture related to sex and constant survival rate",
                    "capture related to length and constant survival rate",
                    "capture related to sex and survival related to length",
@@ -395,15 +408,6 @@ server <- function(input, output, session) {
       endtime<-Sys.time()
       optim_speed<-endtime-starttime 
       
-      est_escapement<-total_escapement(model_data$ch,
-                                       optim_results$par,
-                                       model_data$cap_X[[i]],
-                                       model_data$surv_X[[i]],
-                                       ints=intervals,
-                                       subsampling_weeks=subsampling_weeks,
-                                       observed_per_week=observed_per_week,
-                                       tagged_per_week=tagged_per_week)
-      
       ######################################################
       #calculate model fit statistics (aic, qaic, qaicc)
       ######################################################
@@ -427,67 +431,20 @@ server <- function(input, output, session) {
       QAIC=((2*loglik)/c_hat)+(2*n_params)
       QAICC=QAIC+(2*n_params*(n_params+1))/(nan-n_params-1)
       
-      if(input$use_boots == TRUE && input$boot_input!=0){
-        
-        #update progress for bootstrap
-        progress$set(
-          message = paste("Processing Model", model_list[i]),
-          detail = paste("Bootstrapping Model:", i),
-          value = (i-0.5)/total_models
-        )
-        
-        boot_start<-Sys.time()
-        
-        #add bootstrap progress updates
-        withProgress(message = 'Running bootstrap...', value = 0, {
-          boot_results<-CJS_bootstrap(input$boot_input,
-                                      ic,
-                                      model_data$cap_X[[i]],
-                                      model_data$surv_X[[i]],
-                                      ints=intervals,
-                                      subsampling_weeks=subsampling_weeks,
-                                      observed_per_week=observed_per_week,
-                                      tagged_per_week=tagged_per_week,
-                                      progress_callback = function(iter) {
-                                        incProgress(1/input$boot_input, 
-                                                    detail = paste("Bootstrap iteration", iter))
-                                      })
-        })
-        boot_end<-Sys.time()
-        boot_speed=boot_end-boot_start
-        #confidence intervals
-        conf.level = 95
-        alpha = 1 - conf.level/100
-        lower = alpha/2
-        upper = 1 - alpha/2
-        mid=.5
-        ci<-boot_results%>%
-          summarise(lower_ci=ceiling(quantile(escapement,probs = c(lower),na.rm=T)),
-                    mid_ci=ceiling(quantile(escapement,probs = c(mid),na.rm=T)),
-                    upper_ci=ceiling(quantile(escapement,probs = c(upper),na.rm=T)))
-        
-      }
-      
-      d<-data.frame("escapement"=ceiling(est_escapement$escapement),
+      d<-data.frame(#"escapement"=ceiling(est_escapement$escapement),
+                    model=model_list[i],
                     "optim_speed"=round(optim_speed,2),
+                    "AIC"=signif(AIC,3),
+                    "AICc"=signif(AICc,3),
+                    "QAIC"=signif(QAIC,3),
+                    "QAICC"=signif(QAICC,3),
                     cap_beta1=signif(optim_results$par[1],3),
                     cap_beta2=signif(optim_results$par[2],3),
                     surv_beta1=signif(optim_results$par[3],3),
                     surv_beta2=signif(optim_results$par[4],3),
                     loglik=signif(loglik,3),
-                    model=model_data$models_ran[i],
-                    "AIC"=signif(AIC,3),
-                    "AICc"=signif(AICc,3),
-                    "QAIC"=signif(QAIC,3),
-                    "QAICC"=signif(QAICC,3),
                     "c_hat"=signif(c_hat,3)
       )
-      if(input$boot_input!=0 && input$use_boots==T){
-        d<-data.frame(d,lower_ci=ci$lower_ci,
-                      upper_ci=ci$upper_ci,
-                      input$boot_input,
-                      boot_speed)
-      }
       model_results<-model_results%>%
         rbind(d)
       
@@ -498,20 +455,72 @@ server <- function(input, output, session) {
       )
     }
     
+    model_reports(model_results)
+    
+    default_selected<-model_results[1, ,drop=FALSE]
+    
+    selected_models(default_selected)
+    
     #final progress update
     progress$set(
       value = 1,
       detail = "All models processed!"
     )
-    
-    #model results output
-    output$model_results <- renderDT({
-      (model_results)
-    })
 
   })
   
-  observeEvent(input$run_selected_models,{
+  ###########################  
+  #display model reports
+  ###########################  
+  output$model_reports <- renderUI({
+    req(model_reports())
+
+    model_data<-model_reports()
+    model_data<-model_data[order(model_data$QAICC),]
+      
+    #store model data in a separate reactive value to avoid re-rendering
+    output_table<-renderDT({
+      #format columns
+      numeric_cols<-which(sapply(model_data,is.numeric))
+      
+      #determine which row is currently selected
+      selected_row <- 1  #default to first row
+      
+      datatable(
+        model_data,
+        options=list(
+          pageLength=10,
+          autoWidth=TRUE,
+          dom="Bfrtip",
+          scrollX=TRUE,
+          columnDefs=list(
+            list(className="dt-center",targets='_all'),
+            list(width = "200px", targets = 0) #set width of 1st col
+            )
+          ),
+          rownames = FALSE,
+          selection = list(mode = 'single', selected = selected_row),
+          class = 'display compact stripe hover'
+        )%>%
+          formatRound(columns = numeric_cols, digits = 3)
+      })
+    
+    return(output_table)
+    
+  })
+  
+  #########################
+  #observe selected model
+  #########################
+
+  
+  #########################
+  #select models and run bootstraps
+  #########################
+  observeEvent(input$run_selected_model,{
+    
+    model_data<-model_reports()
+    
     if(input$use_boots == TRUE && input$boot_input!=0){
       
       #update progress for bootstrap
@@ -522,6 +531,15 @@ server <- function(input, output, session) {
       )
       
       boot_start<-Sys.time()
+      
+      est_escapement<-total_escapement(model_data$ch,
+                                       optim_results$par,
+                                       model_data$cap_X[[i]],
+                                       model_data$surv_X[[i]],
+                                       ints=intervals,
+                                       subsampling_weeks=subsampling_weeks,
+                                       observed_per_week=observed_per_week,
+                                       tagged_per_week=tagged_per_week)
       
       #add bootstrap progress updates
       withProgress(message = 'Running bootstrap...', value = 0, {
@@ -551,6 +569,13 @@ server <- function(input, output, session) {
                   mid_ci=ceiling(quantile(escapement,probs = c(mid),na.rm=T)),
                   upper_ci=ceiling(quantile(escapement,probs = c(upper),na.rm=T)))
       
+    }
+    
+    if(input$boot_input!=0 && input$use_boots==T){
+      d<-data.frame(d,lower_ci=ci$lower_ci,
+                    upper_ci=ci$upper_ci,
+                    input$boot_input,
+                    boot_speed)
     }
   })
   

@@ -2,7 +2,11 @@
 #model selection for shiny app
 ##########################################
 #wrapper function for 
-CJS_model_select_app <- function(covars_used, sex_matrix, lengths_matrix, ch, selected_models) {
+CJS_model_select_app <- function(covars_used,
+                                 sex_matrix,
+                                 lengths_matrix, 
+                                 ch, 
+                                 selected_models) {
   models = c(
     "constant capture and survival rates",
     "constant capture rate and survival related to sex",
@@ -17,13 +21,13 @@ CJS_model_select_app <- function(covars_used, sex_matrix, lengths_matrix, ch, se
   
   if (covars_used) {
     if (is.null(selected_models)) {
-      # Default to first model if none selected but covariates are available
+      #default to first model if none selected
       models.to.fit <- 1
     } else {
       models.to.fit <- which(models %in% selected_models)
     }
   } else {
-    # If no covariates, only allow the first model
+    #if no covariates, only allow the first model
     models.to.fit <- 1
   }
   
