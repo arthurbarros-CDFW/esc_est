@@ -24,6 +24,13 @@ total_escapement<-function(ch,beta,cap_X,
   escapement<-N_hat[[2]]*(log(mean(s_hat[,1]))/(mean(s_hat[,1])-1)) + 
     sum(Bstar,na.rm=T)
   
+  #very rarely we get values of s_hat that are 1, which results in
+  #Bstar of NA, and escapement of NA, so if that is the case,
+  #replace super population adjustment with the mean of N_hat
+  if(is.na(escapement)){
+    escapement=mean(unlist(N_hat))
+  }
+  
   ans<-list("p_hat"=p_hat,"s_hat"=s_hat,"N_hat"=N_hat,
             "Bstar"=Bstar,"escapement"=escapement)
   

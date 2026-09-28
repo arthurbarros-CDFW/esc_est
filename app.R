@@ -104,17 +104,19 @@ ui <- fluidPage(
                    #enter number of bootstrap reps
                    h4(strong("Boostrap for confidence intervals?")),
                    checkboxInput("use_boots", "Y/N", value = FALSE),
+                   conditionalPanel(
+                     condition = "input.use_boots == true",
+                     numericInput("boot_input", "Enter a number of bootstrap replications to perform",
+                                  100,min=10,max=1000),
+                     helpText("Enter numeric value between 10 - 1000")
+                   ),
                    actionButton("run_selected_model",
                                 "Estimate Escapement",
                                 class = "btn-primary"),
                    textOutput("model_selected"),
+                   downloadButton("download_model_reports", "Download Model Report")
                  ),
-                 conditionalPanel(
-                   condition = "input.use_boots == true",
-                   numericInput("boot_input", "Enter a number of bootstrap replications to perform",
-                                100,min=10,max=1000),
-                   helpText("Enter numeric value between 10 - 1000")
-                 )),
+                 ),
         tabPanel("Escapement Results", 
                  textOutput("esc_text"),
                  plotOutput("p_esc",height = "400px"),
@@ -348,7 +350,7 @@ server <- function(input, output, session) {
     req(prepare_data())
     prepped_data <- prepare_data()
     
-    model_list<-c(	"constant capture and survival rates",
+    model_list<-c( "constant capture and survival rates",
                    "constant capture rate and survival related to sex",
                    "constant capture rate and survival related to length",
                    "capture related to sex and constant survival rate",
@@ -620,14 +622,30 @@ server <- function(input, output, session) {
         geom_segment(data=ci,aes(x=est_escapement,
                                  xend=est_escapement,y=0,yend=Inf),
                      linewidth=1,linetype='dashed',color='red')+
+        geom_text(data=ci,aes(x=est_escapement,
+                              y=Inf,
+                              label=est_escapement),
+                  vjust=0.5,hjust=1)+
+        geom_text(data=ci,aes(x=upper_ci,
+                              y=Inf,
+                              label=upper_ci),
+                  vjust=0.5,hjust=1)+
+        geom_text(data=ci,aes(x=lower_ci,
+                              y=Inf,
+                              label=lower_ci),
+                  vjust=0.5,hjust=1)+
         #scale_x_continuous(breaks = seq(0,10000,500)) +
         labs(y = "Frequency")+
-        theme_classic()
+        coord_cartesian(clip = "off") +
+        theme_classic()+
+        theme(plot.margin = margin(t = 20, r = 10, b = 10, l = 10))
       
       plot_escapement(esc_p)
       
+      results_text(paste("Lower CI: ",ci$lower_ci,
+                         ". Estimated Escapement: ",est_escapement,
+                         ". Upper CI: ",ci$upper_ci, sep=""))
     }
-    
     
   })
   
@@ -650,6 +668,28 @@ server <- function(input, output, session) {
     model_name<-selected_model$model
     print(paste("Run model: ",model_name,sep=""))
   })
+  
+  ###########################
+  #download handlers
+  ###########################
+  
+  output$download_esc_plot <- downloadHandler(
+    filename = function() {
+      paste("esc_plot_", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      ggsave(file, plot = plot_escapement(), device = "png", width = 10, height = 6, dpi = 300)
+    }
+  )
+  
+  output$download_model_reports <- downloadHandler(
+    filename = function() {
+      paste("esc_model_reports_", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(model_reports(),file, row.names = FALSE)
+    }
+  )
   
 }
 
