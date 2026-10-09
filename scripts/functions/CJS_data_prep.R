@@ -1,6 +1,6 @@
-##########################################
-#CJS_data_prep
-##########################################
+#' @title CJS_data_prep
+#'
+
 CJS_data_prep<-function(){
   suppressWarnings(rm("ch","chops","covars"))#remove objects
   #Part 1: select data prompts
@@ -39,6 +39,17 @@ CJS_data_prep<-function(){
       }
     } else if(nrow(covars)>nrow(ch)){
       stop("Number of covariate records must be the same as the number of capture history records")
+    }
+    
+    #set up if both are not available
+    null_covars<-rep(1,nrow(ch))
+    #process covariates and set up if not both available
+    if(is.null(covars$length)){
+      covars$length <- null_covars
+    }
+    
+    if(is.null(covars$sex)){
+      covars$sex <- null_covars
     }
     
     #check covars for na values
@@ -119,7 +130,7 @@ CJS_data_prep<-function(){
   null_matrix<-matrix(1,nrow=nrow(ch),ncol=ncol(ch))
   
   if(covars.ask == "YES"){
-    covars$sex<-as.numeric(ifelse(covars$sex%in%c('F',"f"),1,0)) #change sex to numeric value 
+   # covars$sex<-as.numeric(ifelse(covars$sex%in%c('F',"f"),1,0)) #change sex to numeric value 
     covars$length<-as.numeric(covars$length)
   }
   
@@ -161,6 +172,7 @@ CJS_data_prep<-function(){
   if(covars.ask == "YES"){
     lengths_matrix<-matrix(covars$length,
                            nrow=nrow(ch),ncol=ncol(ch))
+    covars$sex <- as.numeric(ifelse(covars$sex %in% c('F', "f"), 1, 0))
     sex_matrix<-matrix(as.numeric(covars$sex),
                        nrow=nrow(ch),ncol=ncol(ch))
   } else {

@@ -1,6 +1,29 @@
-##########################################
-#Total escapement
-##########################################
+#' @title total_escapement
+#'
+#' @description Produces estimate of total escapement for survey period.
+#' 
+#' @param ch matrix of capture histories.
+#' 
+#' @param beta list of four model parameters drawn from cpp_optim.
+#' 
+#' @param cap_X matrix of capture related covariates.
+#' 
+#' @param surv_X matrix of survival related covariates.
+#' 
+#' @param ints confidence intervals, defaults to 95%.
+#' 
+#' @param subsampling_weeks matrix of weeks in which subsampling occured.
+#' 
+#' @param observed_per_week matrix of number of carcasses observed each week. Derived from 
+#' number tagged each week * sub.sampling.
+#' 
+#' @param tagged_per_week matrix of number of carcasses tagged each week. Derived
+#' as colSums(ch>=1,na.rm=T).
+#' 
+#' @return ans list with p_hat and s_hat matrices, N_hat for each sampling period,
+#' Bstar, and estimate of total escapement for survey period.
+#' 
+
 total_escapement<-function(ch,beta,cap_X,
                            surv_X,ints,
                            subsampling_weeks,

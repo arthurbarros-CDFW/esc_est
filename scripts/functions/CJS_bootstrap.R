@@ -1,3 +1,30 @@
+#' @title CJS_bootstrap
+#'
+#' @description bootstrapping function that randomly samples capture history and
+#' covariate records to estimate uncertainty of the final escapement estimates.
+#' 
+#' @param iterations number of bootstrap iterations to perform, set by user in app.
+#' 
+#' @param ch matrix of capture histories.
+#' 
+#' @param cap_X matrix of capture related covariates.
+#' 
+#' @param surv_X matrix of survival related covariates.
+#'  
+#' @param ints confidence intervals, defaults to 95%.
+#' 
+#' @param subsampling_weeks matrix of weeks in which subsampling occured.
+#' 
+#' @param observed_per_week matrix of number of carcasses observed each week. Derived from 
+#' number tagged each week * sub.sampling.
+#' 
+#' @param tagged_per_week matrix of number of carcasses tagged each week. Derived
+#' as colSums(ch>=1,na.rm=T).
+#' 
+#' @return results data frame that contains the log-likelihood, escapement estimate,
+#' and processing time for each bootstrap iteration.
+#'
+
 CJS_bootstrap<-function(iterations,ch,cap_X,surv_X,ints,
                         subsampling_weeks,observed_per_week,
                         tagged_per_week,

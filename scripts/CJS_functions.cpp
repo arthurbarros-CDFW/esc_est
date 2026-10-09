@@ -1,3 +1,4 @@
+#include <Rcpp.h>
 #include <RcppArmadillo.h>
 #include <iostream>
 

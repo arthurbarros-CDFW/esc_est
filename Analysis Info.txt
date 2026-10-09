@@ -1,13 +1,13 @@
- The number of survey periods in the capture history matrix is:  5 
- The number of individual carcasses in the capture history matrix is:  374 
+ The number of survey periods in the capture history matrix is:  16 
+ The number of individual carcasses in the capture history matrix is:  5644 
  
  The number of carcasses captured:  
- 34 98 156 89 21 
+ 3 1 24 201 578 827 871 642 514 797 802 413 227 151 80 41 
  
  The number of marked carcasses released:  
- 24 55 56 27 2 
+ 0 1 18 91 239 222 194 126 61 98 55 28 30 24 7 0 
  
  The number of chops:  
- 10 43 100 62 19 
+ 3 0 6 110 339 605 677 516 453 699 747 385 197 127 73 41 
  
- Date Completed:  2025-12-23 11:14:36.469867
+ Date Completed:  2026-10-02 09:47:16.132983

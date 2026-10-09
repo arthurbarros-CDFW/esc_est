@@ -1,6 +1,22 @@
-##########################################
-#fill_prob_matrices
-##########################################
+#' @title fill_prob_matrices
+#'
+#' @description builds matrices of survival and capture probabilities. Called by
+#' total_escapement().
+#' 
+#' @param ch matrix of capture histories.
+#' 
+#' @param beta list of four model parameters.
+#' 
+#' @param cap_X matrix of capture related covariates.
+#' 
+#' @param surv_X matrix of survival related covariates.
+#' 
+#' @param ints confidence intervals, defaults to 95%.
+#' 
+#' @return list with matrices of estimate capture and survival probabilities for
+#' each carcass at each observation point.
+#' 
+
 fill_prob_matrices<-function(ch,beta,cap_X,surv_X,ints){
   nan=nrow(ch)
   ns=ncol(ch)

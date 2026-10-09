@@ -1,6 +1,28 @@
-##########################################
-#B_star
-##########################################
+#' @title B_star
+#'
+#' @description Calculates R_j, the number of carcasses released with tags during period j, 
+#' and n_j the number of carcasses captured during j. Utilizes the Horvitz_Thompson() 
+#' function to estimate N_j. Uses B1 and s_hat to calculate Bstar_j, the number
+#' of births between j and j+1.
+#' 
+#' @param ch matrix of capture histories.
+#' 
+#' @param s_hat matrix of survival probability estimates for each carcass i at
+#'  sampling period j.
+#' 
+#' @param p_hat matrix of capture probability estimates for each carcass i at
+#'  sampling period j.
+#' 
+#' @param subsampling_weeks matrix of weeks in which subsampling occurred.
+#' 
+#' @param observed_per_week matrix of number of carcasses observed each week. Derived from 
+#' number tagged each week * sub.sampling.
+#' 
+#' @param tagged_per_week matrix of number of carcasses tagged each week. Derived
+#' as colSums(ch>=1,na.rm=T).
+#' 
+#' @return Bstar Estimate of Bstar, or number of births between j and j+1.
+#' 
 B_star<-function(ch,s_hat,p_hat,
                  subsampling_weeks,observed_per_week,tagged_per_week){
   R=n=list()

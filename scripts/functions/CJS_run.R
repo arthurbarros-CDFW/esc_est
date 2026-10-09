@@ -135,8 +135,8 @@ CJS_run<-function(){
                      linewidth=1,linetype='dashed',color='red')+
         #scale_x_continuous(breaks = seq(0,10000,500)) +
         theme_classic()
-      ggsave(paste("outputs/plot_model-",i,"_iter-",n_boot,"_",Sys.Date(),".png",
-                   sep=""),p,scale=4)
+      #ggsave(paste("outputs/plot_model-",i,"_iter-",n_boot,"_",Sys.Date(),".png",
+      #            sep=""),p,scale=4)
     }
     
     d<-data.frame(est_escapement,
@@ -173,10 +173,10 @@ CJS_run<-function(){
     ) %>%
     arrange(AIC)  # Sort by best model first
   
-  write.csv(model_results,paste("outputs/CJS_outputs-",
-                                Sys.Date(),
-                                ".csv",
-                                sep=""),
-            row.names = F)
+  #write.csv(model_results,paste("outputs/CJS_outputs-",
+  #                              Sys.Date(),
+  #                              ".csv",
+  #                              sep=""),
+  #          row.names = F)
   return(model_results)
 }

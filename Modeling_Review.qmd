@@ -60,17 +60,15 @@ The classic mark-recapture estimator is known as the **Lincoln-Petersen** [@Pete
 
 $$\hat{N}=\frac{MC}{R}$$ {#eq-lincoln_petersen}
 
--   $M$ is the number of individuals marked and released during the initial marking period.
+- $M$ is the number of individuals marked and released during the initial marking period.
 
--   $C$ is the number of individuals (both marked and unmarked) captured in the recapture period.
+- $C$ is the number of individuals (both marked and unmarked) captured in the recapture period.
 
--   $R$ is the number of marked individuals recaptured in the later recapture period.
+- $R$ is the number of marked individuals recaptured in the later recapture period.
 
--   $\hat{N}$ is the estimate of population abundance.
+- $\hat{N}$ is the estimate of population abundance.
 
 In the diagram below (@fig-lp_concept), 7 fish from the population are captured and marked ($K$) during an initial capture and marking period. Then during a follow up recapture period, 7 fish are again captured ($n$), and of those 3 have markings ($k$). This provides us with an estimate of a total population of roughly 16 fish.
-
-![A conceptual diagram of the classic Lincoln-Petersen mark-recapture method.](pictures/figure_LP.png){#fig-lp_concept}
 
 There are several important assumptions of the Lincoln-Petersen method:
 
@@ -84,17 +82,15 @@ There are several important assumptions of the Lincoln-Petersen method:
 
 The Lincoln-Petersen method was expanded upon upon by Zoe Schnabel [-@Schnabel1938] with the **Schnabel estimator**, which allows for multiple periods of capture and recapture instead of just two.
 
-$$
-\hat{N}=\frac{\sum_t(C_tM_t)}{\sum_tR_t}
-$$ {#eq-schnabel}
+$$\hat{N}=\frac{\sum_t(C_tM_t)}{\sum_tR_t}$$ {#eq-schnabel}
 
 This allows for marking to occur during multiple sampling periods $t$. One primary advantage of this method is multiple sampling periods allow for the detection of violation of the above assumptions. Regression of the proportion of marked animals to previously marked animals ($\frac{R_t}{C_t} \sim M_{t-1}$) will be straight if assumptions are met, and curved if the assumptions are violated.
 
 If we examine our the annual carcass surveys performed across the Central Valley for returning Chinook salmon, we can easily identify ways in which the system violates the assumptions of the Lincoln-Petersen method:
 
--   **Populations are open:** throughout the survey period adult Chinook arrive in the survey area, spawn, and die. At the same time spawned out carcasses that may or may not have been marked and counted are removed from the system either by scavengers, decay, or being flushed downstream.
+- **Populations are open:** throughout the survey period adult Chinook arrive in the survey area, spawn, and die. At the same time spawned out carcasses that may or may not have been marked and counted are removed from the system either by scavengers, decay, or being flushed downstream.
 
--   **Probability of capture is not homogeneous:** probability of"capture" for individual Chinook carcasses is really the probability it is spotted by survey field crews. This can be dependent on a number of factors including carcass size, carcass sex, water flow rates, and turbidity.
+- **Probability of capture is not homogeneous:** probability of"capture" for individual Chinook carcasses is really the probability it is spotted by survey field crews. This can be dependent on a number of factors including carcass size, carcass sex, water flow rates, and turbidity.
 
 The above violations of the Lincoln-Petersen estimates could cause large biases in abundance estimates, and suggests that using this closed population model is ill advised.
 
@@ -102,35 +98,27 @@ The above violations of the Lincoln-Petersen estimates could cause large biases 
 
 To deal with open populations and heterogeneous capture probabilities we can utilize a Cormack-Jolly-Seber (CJS) model [@Cormack1964; @Jolly1965; @Seber1965], which can deal with population changes during the survey period, as well as differences in capture probability among individuals. The CJS method does not directly provide estimates of abundance, instead it utilizes multiple sampling events during the survey period and allows us to calculate two important parameters:
 
--   $\phi_{ij}$ : the probability carcass $i$ "survives" (remains in the system) from period $j$ to $j+1$.
+- $\phi_{ij}$ : the probability carcass $i$ "survives" (remains in the system) from period $j$ to $j+1$.
 
--   $p_{ij}$ : the probability carcass $i$ is captured during period $j$.
+- $p_{ij}$ : the probability carcass $i$ is captured during period $j$.
 
-We will generate estimates for $p_{ij}$ and $\phi_{ij}$ using the CJS Maximum Likelihood Estimation methods later, but for now know that the probability of capture can be used to estimate the population size at period $j$ using the "**Horvitz-Thompson estimato**r" [@Horvitz1952; @Nichols2005]:
+We will generate estimates for $p_{ij}$ and $\phi_{ij}$ using the CJS Maximum Likelihood Estimation methods later, but for now know that the probability of capture can be used to estimate the population size at period $j$ using the "**Horvitz-Thompson estimator**" [@Horvitz1952; @Nichols2005]:
 
-$$
-\hat{N_j}=\sum_{i=1}^{n}\frac{h_{ij}}{\hat{p}_{ij}}
-$$ {#eq-horvitz_thompson}
+$$\hat{N_j}=\sum_{i=1}^{n}\frac{h_{ij}}{\hat{p}_{ij}}$$ {#eq-horvitz_thompson}
 
 Where $h_{ij}$ is either a 0 or 1 capture indicator for carcass $i$ at period $j$, and $n$ is the number of all carcasses observed over all survey periods. Basically it's saying the abundance of carcasses at time $j$ is equal to the sum of all the carcasses captured during that period divided by their capture probability.
 
 Typically the total population estimate $\hat{N}$ is calculated by taking the average value of $\hat{N}_j$, however there are problems with this method when many individuals are entering and leaving the population during the survey. This can be improved by using a *superpopulation* modification [@Ryan2013] to estimate total escapement as:
 
-$$
-\hat{N}_{escapement}=\hat{N}_2\frac{ln(\tilde{\phi}_1)}{\tilde{\phi}_1-1}+B_2^*+B_3^*+...+B_{S-2}^*
-$$ {#eq-superpopulation_mod}
+$$\hat{N}_{escapement}=\hat{N}_2\frac{ln(\tilde{\phi}_1)}{\tilde{\phi}_1-1}+B_2^*+B_3^*+...+B_{S-2}^*$$ {#eq-superpopulation_mod}
 
 Where $S$ is the total number of all sampling occasions and $B_j^*$, the adjusted number of "births" (new adults entering the system and dying) between $j$ and $j+1$, is:
 
-$$
-B_j^* = \tilde{B}_j\frac{ln(\tilde{\phi}_j)}{\tilde{\phi}_1-1}
-$$ {#eq-bstar}
+$$B_j^* = \tilde{B}_j\frac{ln(\tilde{\phi}_j)}{\tilde{\phi}_1-1}$$ {#eq-bstar}
 
 $\tilde{B}_j$ is the total "births" for period $j$:
 
-$$
-\tilde{B}_j=\hat{N}_{j+1} - \tilde{\phi}_{j}[\hat{N}_j-(n_j-R_j)]
-$$ {#eq-b_tilde}
+$$\tilde{B}_j=\hat{N}_{j+1} - \tilde{\phi}_{j}[\hat{N}_j-(n_j-R_j)]$$ {#eq-b_tilde}
 
 and $R_j$ is the number of carcasses released with disctags during period $j$, $n_j$ is the number of carcasses captured during period $j$, and $\hat{N}_j$ is the estimate of abundance during period $j$ derived from the Horvitz-Thompson estimator in @eq-horvitz_thompson.
 
@@ -144,40 +132,34 @@ For the CVCS carcass surveys, carcasses are captured over $k$ occasions, usually
 
 **Capture histories** are the records of capture and recapture for a given carcass and usually look similar to:
 
-$$
-\begin{bmatrix}
+$$\begin{bmatrix}
 DiscTag & S1 & S2 & S3 & S4 &... & k\\
 1601 & 1 & 0 & 1 & 1 &...\\
 1602 & 1 & 0 & 0 & 1 &...\\
 1603 & 0 & 0 & 1 & 1 &...\\
 1604 & 1 & 1 & 1 & 2 &...\\
-\end{bmatrix}
-$$
+\end{bmatrix}$$
 
 Here each record is for a tagged carcass and the subsequent sampling periods $j$. A value of 0 indicates the carcass was not captured, a value of 1 indicates the carcass was captured, and a value of 2 indicates the carcass was captured and "chopped" (beheaded) and removed from the system.
 
 **Chops** is the record of the number of carcasses removed from the system upon first capture. This is done when the carcass is deteriorated beyond identification or measurement, and wont last long enough for further recaptures. The data can look like:
 
-$$
-\begin{bmatrix}
+$$\begin{bmatrix}
 S1 & S2 & S3 & S4 & S5 &... & k\\
 0 & 4 & 27 & 18 & 20
-\end{bmatrix}
-$$
+\end{bmatrix}$$
 
 With just one row of total chopped counts for each sampling period.
 
 **Covariate** **data** is the record of relevant covariates for each captured carcass or each survey period. For CVCS surveys, the covariates currently used are the sex and the length of the carcass. In the future we hope to incorporate environmental variables such as temperature and flow. A covariate table usually looks like:
 
-$$
-\begin{bmatrix}
+$$\begin{bmatrix}
 DiscTag & Sex & Length\\
 1601 & F & 200\\
 1602 & F & 223 \\
 1603 & M & 195\\
 1604 & M & 180\\
-\end{bmatrix}
-$$
+\end{bmatrix}$$
 
 With the covariates recorded for each carcass marked with a disctag, and used to help determine different values of $p$ and $\phi$ for each carcass.
 
@@ -191,91 +173,61 @@ $$ \begin{matrix} j=1&\xrightarrow {\phi_{1i}}& j=2&\xrightarrow {\phi_{2i}}& j=
 
 Let's say we have the following ,very simple, set of capture histories for four carcass, across four different sampling periods:
 
-$$
-\begin{bmatrix}
+$$\begin{bmatrix}
 DiscTag & S1 & S2 & S3 & S4 \\
 1601 & 1 & 0 & 1 & 1 \\
 1602 & 1 & 0 & 0 & 1 \\
 1603 & 0 & 0 & 1 & 1 \\
 1604 & 1 & 1 & 1 & 2 \\
-\end{bmatrix}
-$$
+\end{bmatrix}$$
 
 If we look at the first row of data, the capture history for the carcass with disc-tag number 1601, we see it was captured and marked during period 1, not captured in period 2, and then captured again in periods 3 and 4. We can assign a probability of observing this capture history as:
 
-$$
-P(1011|\text{release at period 1})=\phi_1(1-p_2)\phi_2p_3\phi_3p_4
-$$
+$$P(1011|\text{release at period 1})=\phi_1(1-p_2)\phi_2p_3\phi_3p_4$$
 
 In the above, $(1-p_2)$ is the probability that the carcass is not captured at period $j=2$. Now we can do the same with the rest of the example capture histories that we saw:
 
-$$
-P_1(1011 |\text{release at period 1})=\phi_1(1-p_2)\phi_2p_3\phi_3p_4
-$$
+$$P_1(1011 |\text{release at period 1})=\phi_1(1-p_2)\phi_2p_3\phi_3p_4$$
 
-$$
-P_2(1001|\text{release at period 1})=\phi_1(1-p_2)\phi_2(1-p_3)\phi_3p_4
-$$
+$$P_2(1001|\text{release at period 1})=\phi_1(1-p_2)\phi_2(1-p_3)\phi_3p_4$$
 
-$$
-P_3(0011|\text{release at period 3})=\phi_3p_4
-$$
+$$P_3(0011|\text{release at period 3})=\phi_3p_4$$
 
-$$
-P_4(1112|\text{release at period 1})=\phi_1p_2\phi_2p_3\phi_3p_4
-$$
+$$P_4(1112|\text{release at period 1})=\phi_1p_2\phi_2p_3\phi_3p_4$$
 
 In the above note the 2 at the end of the last capture history representing a chopped event. Chopped carcasses will be dealt with later. Also note that for $P_3$ the likelihood conditions on the initial observation, and excludes estimates of $\phi$ or $p$ before that period.
 
 We can use those equations to estimate the total likelihood of observing all the capture histories we saw as:
 
-$$
-L=P_1*P_2*P_3*P_4
-$$ {#eq-total_likelihood}
+$$L=P_1*P_2*P_3*P_4$$ {#eq-total_likelihood}
 
 Or as the product of all $n$ of the capture history probabilities [@Amstrup2005]:
 
-$$
-L=\prod_{i=1}^n P_i
-$$ {#eq-product_probs}
+$$L=\prod_{i=1}^n P_i$$ {#eq-product_probs}
 
 To make the computing of this probability easier we can log-transform our likelihoods so that:
 
-$$
-ln(L)=\sum_{i=1}^n ln(P_i)
-$$ {#eq-log_likelihood}
+$$ln(L)=\sum_{i=1}^n ln(P_i)$$ {#eq-log_likelihood}
 
 This is known as the "log-likelihood" of the probability. Using this simple example above, we have a way to estimate the probability of observing a set of given capture histories if we have the capture ($p$) and survival ($\phi$) probabilities associated with each capture history.
 
 Of course, we don't know these probabilities, and they will likely vary across different covariates for each carcass and each period. Possible covariates could include size of carcass, carcass sex, or environmental variables such as temperature, flow, or turbidity. For CVCS work, we currently utilize covariates of sex and length to try and estimate capture and survival probabilities. For our example we will consider a CJS model in which capture probability is a function of length, and survival probability is a function of sex.
 
-$$
-P(capture|length) = \hat{p}_{ij}
-$$ {#eq-prob_cap}
+$$P(capture|length) = \hat{p}_{ij}$$ {#eq-prob_cap}
 
-$$
-P(survival|sex) = \hat{\phi}_{ij}
-$$ {#eq-prob_surv}
+$$P(survival|sex) = \hat{\phi}_{ij}$$ {#eq-prob_surv}
 
 These functions can best be represented with logistic regression models:
 
-$$
-\hat{\phi}_{ij}=\frac{e^{\Upsilon_0+\Upsilon_1x_{ij}}}{1+e^{\Upsilon_0+\Upsilon_1x_{ij}}}
-$$ {#eq-log_regression1}
+$$\hat{\phi}_{ij}=\frac{e^{\Upsilon_0+\Upsilon_1x_{ij}}}{1+e^{\Upsilon_0+\Upsilon_1x_{ij}}}$$ {#eq-log_regression1}
 
-$$
-\hat{p}_{ij}=\frac{e^{\beta_0+\beta_1y_{ij}}}{1+e^{\beta_0+\beta_1y_{ij}}}
-$$ {#eq-log_regression2}
+$$\hat{p}_{ij}=\frac{e^{\beta_0+\beta_1y_{ij}}}{1+e^{\beta_0+\beta_1y_{ij}}}$$ {#eq-log_regression2}
 
 Where $x_{ij}$ is the sex of a given carcass, and $y_{ij}$ it's length. To ease in estimating the coefficients $\Upsilon$ and $\beta$ we can turn the above into linear models:
 
-$$
-ln(\frac{\hat{\phi}_{ij}}{1-\hat{\phi}_{ij}})=\Upsilon_0+\Upsilon_1x_{ij}
-$$ {#eq-logit1}
+$$ln(\frac{\hat{\phi}_{ij}}{1-\hat{\phi}_{ij}})=\Upsilon_0+\Upsilon_1x_{ij}$$ {#eq-logit1}
 
-$$
-ln(\frac{\hat{p}_{ij}}{1-\hat{p}_{ij}})=\beta_0+\beta_1y_{ij}
-$$ {#eq-logittwo}
+$$ln(\frac{\hat{p}_{ij}}{1-\hat{p}_{ij}})=\beta_0+\beta_1y_{ij}$$ {#eq-logittwo}
 
 with $ln(\frac{\hat{\phi}_{ij}}{1-\hat{\phi}_{ij}})$ and $ln(\frac{\hat{p}_{ij}}{1-\hat{p}_{ij}})$ as our logit functions, used as "link functions" to model the probabilities as linear functions of covariates [@Amstrup2005].
 
@@ -283,15 +235,11 @@ You can see above that if we can estimate the coefficients of those two equation
 
 If we refer back to @eq-log_likelihood, we can remember that the log-likelihood of all the observed capture histories is equal to the sum of the log-likelihood of each individual capture history $P_i$. The log--likelihood of the capture history for a given carcass $i$ can be given as the sum of its capture and survival probabilities from its first to last encounter, plus $\chi_i$: the probability it is not captured after its last release [@Mcdonald2001]. This individual capture history log-likelihood can be represented as:
 
-$$
-ln(P_i)=\sum_{j=first}^{last}[h_{ij}*ln(\hat{p}_{ij})+(1-h_{ij})*ln(1-\hat{p}_{ij})+ln(\hat{\phi}_{j-1,i})]+\chi_i
-$$ {#eq-indivdual_loglik}
+$$ln(P_i)=\sum_{j=first}^{last}[h_{ij}*ln(\hat{p}_{ij})+(1-h_{ij})*ln(1-\hat{p}_{ij})+ln(\hat{\phi}_{j-1,i})]+\chi_i$$ {#eq-indivdual_loglik}
 
 Where $h_{ij}$ is 1 if the carcass was observed during $j$, and 0 otherwise. $\chi_i$ can be represented as:
 
-$$
-\chi_i=(1-\hat{\phi}_{last,i})+\prod_{j=last}^n \hat{\phi}_{ij}*(1-\hat{p}_{j+1,i})*(1-\hat{\phi}_{(n-1),i})
-$$ {#eq-chi}
+$$\chi_i=(1-\hat{\phi}_{last,i})+\prod_{j=last}^n \hat{\phi}_{ij}*(1-\hat{p}_{j+1,i})*(1-\hat{\phi}_{(n-1),i})$$ {#eq-chi}
 
 The first part of @eq-chi $(1-\hat{\phi}_{last,i})$ represents the probability the given carcass is removed from the system immediately after its last observation. The second part of @eq-chi is the product of all probabilities that carcass remained in the system but wasn't observed during all subsequent observation periods.
 
@@ -327,21 +275,21 @@ The `escapeMR` package is actually a "front-end" package that loads and formats 
 
 Let's first examine the `escapeMR` package by examining it's gitlab repository: <https://gitlab.com/tmcd/escapemr/-/tree/master/R>. In this repository are several different R scripts that the package utilizes to load, format, and pass data to the `mra` package. I will make note of the ones important to our efforts here:
 
--   **escapeMR.R** - loads and runs the shiny application for user interface with the package.
+- **escapeMR.R** - loads and runs the shiny application for user interface with the package.
 
--   **askForData.R** - prompts user to load catch history, chops, and covariate data, and then formats it for use in the `mra` package.
+- **askForData.R** - prompts user to load catch history, chops, and covariate data, and then formats it for use in the `mra` package.
 
--   **CJSscript.R** - a script based version of the escapeMR shiny application that can be run in R without needing to use shiny. Takes user inputs and runs the "esc_model.R" script based on those inputs (model selection, bootstrap iterations, and confidence intervals).
+- **CJSscript.R** - a script based version of the escapeMR shiny application that can be run in R without needing to use shiny. Takes user inputs and runs the "esc_model.R" script based on those inputs (model selection, bootstrap iterations, and confidence intervals).
 
--   **esc_model.R** - the workhorse script of the `escapeMR` package, this passes the formatted data to the `mra` package using the `F.cjs.estim()` call. The script then receives the estimates of $\hat{N}_j$, $\hat{p}$, and $\hat{\phi}$, and uses them to estimate final escapement.
+- **esc_model.R** - the workhorse script of the `escapeMR` package, this passes the formatted data to the `mra` package using the `F.cjs.estim()` call. The script then receives the estimates of $\hat{N}_j$, $\hat{p}$, and $\hat{\phi}$, and uses them to estimate final escapement.
 
 The `mra` package repository can be accessed here: <https://github.com/tmcd82070/MRA/tree/master>, note its been sometime since it was updated. There are a lot of folders and scripts in this repository, so again I will highlight the one's I referenced in my efforts, and how they are applicable to our work.
 
--   **F.cjs.estim.R** - receives the input data from the `escapeMR` package, and set's initial parameters to use with MLE to make our estimates of $\hat{N}_j$, $\hat{p}$, and $\hat{\phi}$. This script then passes the initial parameters and relevant data to a `.Fortran("cjsmod")` call. This then utilizes the FORTRAN coding language and the "Mrawin.f90" script in the package to do all the leg-work of MLE.
+- **F.cjs.estim.R** - receives the input data from the `escapeMR` package, and set's initial parameters to use with MLE to make our estimates of $\hat{N}_j$, $\hat{p}$, and $\hat{\phi}$. This script then passes the initial parameters and relevant data to a `.Fortran("cjsmod")` call. This then utilizes the FORTRAN coding language and the "Mrawin.f90" script in the package to do all the leg-work of MLE.
 
--   **Mrawin.f90** - this is FORTRAN script of various subroutines used in finding the MLE of our model. the "cjs" subroutine takes the formatted data and passes it to other subroutines which replicate many of the equations we've discussed so far.
+- **Mrawin.f90** - this is FORTRAN script of various subroutines used in finding the MLE of our model. the "cjs" subroutine takes the formatted data and passes it to other subroutines which replicate many of the equations we've discussed so far.
 
-    -   Of important note is the subroutine `VA09AD`, which is the MLE algorithm that the `mra` package uses to find the most likely survival and capture probability coefficients. I have not been able to find out much information about this algorithm, other than that is a minimization algorithm (so the `mra` package just multiplies it by $-1$), and that it originates from the Harwell Subroutine Library. I was also unable to replicate this method in R, and am instead relying on the R `optim()` call for maximization. In a later section I will discuss the benefits and drawbacks of this.
+  - Of important note is the subroutine `VA09AD`, which is the MLE algorithm that the `mra` package uses to find the most likely survival and capture probability coefficients. I have not been able to find out much information about this algorithm, other than that is a minimization algorithm (so the `mra` package just multiplies it by $-1$), and that it originates from the Harwell Subroutine Library. I was also unable to replicate this method in R, and am instead relying on the R `optim()` call for maximization. In a later section I will discuss the benefits and drawbacks of this.
 
 ![Conceptual model overview of how the escapeMR and mra package operate.](pictures/figure_escapemr.png){width="100%"}
 
@@ -378,7 +326,7 @@ head(chops)
 
 When coding our equations here, we'll start at the end first. We'll first write the Horvitz-Thompson estimator (@eq-horvitz_thompson), that we'll then use in our superpopulation model (@eq-superpopulation_mod) to get our final estimate of escapement $\hat{N}$. The `Horvitz_Thompson()` function I've created below does this in the following:
 
--   Loads `p_hat`, a matrix of capture probabilities $\hat{p}_{ij}$, and `ch`, our capture history dataframe.
+- Loads `p_hat`, a matrix of capture probabilities $\hat{p}_{ij}$, and `ch`, our capture history dataframe.
 
 ::: {.callout-note appearance="simple"}
 ## Note
@@ -386,11 +334,11 @@ When coding our equations here, we'll start at the end first. We'll first write 
 At this point we haven't calculated values for $\hat{p}_{ij}$ yet, that will be done further down the line.
 :::
 
--   Finds `nan` and `ns` ('number of animals' and 'number of surveys') of the capture history.
+- Finds `nan` and `ns` ('number of animals' and 'number of surveys') of the capture history.
 
--   Makes an empty matrix `n_mat` with dimensions `nan * ns` that it fills with a for-loop with either a 0, if carcass $i$ wasn't observed in that period, or with $\frac{1}{\hat{p}_{ij}}$ .
+- Makes an empty matrix `n_mat` with dimensions `nan * ns` that it fills with a for-loop with either a 0, if carcass $i$ wasn't observed in that period, or with $\frac{1}{\hat{p}_{ij}}$ .
 
--   Calculates $\hat{N}$ for each period $j$ by summing all the records of `n_mat` during period $j$.
+- Calculates $\hat{N}$ for each period $j$ by summing all the records of `n_mat` during period $j$.
 
 ```{r, Horvitz Thompson}
 Horvitz_Thompson<-function(p_hat,ch){
@@ -445,13 +393,13 @@ B_star<-function(ch,s_hat,p_hat){
 
 The above function `B_star()` runs through a few steps:
 
--   First it uses a for-loop to calculate $R_j$, the number of carcasses released with tags during $j$; and $n_j$, the number of carcasses captured during $j$.
+- First it uses a for-loop to calculate $R_j$, the number of carcasses released with tags during $j$; and $n_j$, the number of carcasses captured during $j$.
 
--   Then it uses the `Horvitz_Thompson()` function we wrote to estimate $\hat{N}_j$.
+- Then it uses the `Horvitz_Thompson()` function we wrote to estimate $\hat{N}_j$.
 
--   It then uses `s_hat` (a matrix of $\hat{\phi}_{ij}$ that like $\hat{p}_{ij}$ we haven't yet written a function to produce), and $n_j$ and $R_j$ to estimate `B1` ($\tilde{B}_j$) the total number of births for period $j$.
+- It then uses `s_hat` (a matrix of $\hat{\phi}_{ij}$ that like $\hat{p}_{ij}$ we haven't yet written a function to produce), and $n_j$ and $R_j$ to estimate `B1` ($\tilde{B}_j$) the total number of births for period $j$.
 
--   Finally it uses `B1` and `s_hat` to calculate $B_j^*$, the number of births between $j$ and $j+1$.
+- Finally it uses `B1` and `s_hat` to calculate $B_j^*$, the number of births between $j$ and $j+1$.
 
 To wrap everything up we can write a final function `total_escapement()`, which uses what we've created so far to estimate $\hat{N}_{escapement}$(@eq-superpopulation_mod):
 
@@ -618,11 +566,11 @@ CJS_loglik<-function(beta,cap_X,surv_X,ch){
 }
 ```
 
--   Part 1: initializes some variables used throughout the rest of the function, including the initial value of `xlnlik` (which will be our final output) to 0.
+- Part 1: initializes some variables used throughout the rest of the function, including the initial value of `xlnlik` (which will be our final output) to 0.
 
--   Part 2: the `CJS_loglik()` function creates a `first` and `last` list for our capture histories using the `location()` function we just wrote.
+- Part 2: the `CJS_loglik()` function creates a `first` and `last` list for our capture histories using the `location()` function we just wrote.
 
--   Part 3: initializes a for-loop over each capture history record in `ch`, and sets initial values for the loop. Also sets values for `init_cap` and `init_surv`, which will tell the next steps which period $j$ to begin with when estimating values for `vp_ij` ($\hat{\phi}_{ij}$) and `vs_ij` ($\hat{p}_{ij}$) for each carcass.
+- Part 3: initializes a for-loop over each capture history record in `ch`, and sets initial values for the loop. Also sets values for `init_cap` and `init_surv`, which will tell the next steps which period $j$ to begin with when estimating values for `vp_ij` ($\hat{\phi}_{ij}$) and `vs_ij` ($\hat{p}_{ij}$) for each carcass.
 
 ::: {.callout-note appearance="simple"}
 ## Note
@@ -630,25 +578,25 @@ CJS_loglik<-function(beta,cap_X,surv_X,ch){
 For the above if statement, `first[i]==0` is used because when the first encounter ends up being the last period of observation, the `location()` function we wrote will give it a first value of 0.
 :::
 
--   Part 3.1: computes values of $\hat{p}$ for carcass $i$ from the first observation to the last on utilizing the `pro_capsur()` function we wrote earlier, with the given coefficients `beta`. It assigns those values to the vectors `vp_ij`.
+- Part 3.1: computes values of $\hat{p}$ for carcass $i$ from the first observation to the last on utilizing the `pro_capsur()` function we wrote earlier, with the given coefficients `beta`. It assigns those values to the vectors `vp_ij`.
 
--   Part 3.2: computes values of $\hat{\phi}$ for carcass $i$ from the first observation to the last on utilizing the `pro_capsur()` function we wrote earlier, with the given coefficients `beta`. It assigns those values to the vectors `vs_ij`.
+- Part 3.2: computes values of $\hat{\phi}$ for carcass $i$ from the first observation to the last on utilizing the `pro_capsur()` function we wrote earlier, with the given coefficients `beta`. It assigns those values to the vectors `vs_ij`.
 
--   Part 3.3: uses the estimates of $\hat{p}$ and $\hat{\phi}$ to compute the log-likelihood contribution for carcass $i$. This is the first part of the equation calculating the log-likelihood of everything up to $\chi$ . Saves output as value `sum1`.
+- Part 3.3: uses the estimates of $\hat{p}$ and $\hat{\phi}$ to compute the log-likelihood contribution for carcass $i$. This is the first part of the equation calculating the log-likelihood of everything up to $\chi$ . Saves output as value `sum1`.
 
--   Part 3.4: estimates the log-likelihood of $\chi$ as `sum2`, the chance a carcass remains in the system but is not recaptured after it's final observation.
+- Part 3.4: estimates the log-likelihood of $\chi$ as `sum2`, the chance a carcass remains in the system but is not recaptured after it's final observation.
 
--   Part 3.5: Adds `sum1` and `sum2` together into `xlnlik`, the running sum of total likelihood. Once the for-loop is complete, the function returns the final value of `xlnlik`, the total sum of all the log-likelihood of observing all the observed capture histories given the provided covariates and coefficients in `beta` ($\Upsilon_0$, $\Upsilon_1$, $\beta_0$, and $\beta_1$).
+- Part 3.5: Adds `sum1` and `sum2` together into `xlnlik`, the running sum of total likelihood. Once the for-loop is complete, the function returns the final value of `xlnlik`, the total sum of all the log-likelihood of observing all the observed capture histories given the provided covariates and coefficients in `beta` ($\Upsilon_0$, $\Upsilon_1$, $\beta_0$, and $\beta_1$).
 
 Now let's review the functions we've made so far:
 
--   The `total_escapement()` function, which utilizes our capture history (`ch)`; `p_hat` and `s_hat`, matrices of $\hat{p}_{ij}$ and $\hat{\phi}_{ij}$; as well as the `Horivtz_Thompson()` and `B_star()` functions to produce a final estimate of $\hat{N}$ for the study period.
+- The `total_escapement()` function, which utilizes our capture history (`ch)`; `p_hat` and `s_hat`, matrices of $\hat{p}_{ij}$ and $\hat{\phi}_{ij}$; as well as the `Horivtz_Thompson()` and `B_star()` functions to produce a final estimate of $\hat{N}$ for the study period.
 
--   The `pro_capsur()` function was made to estimate the individual values of $\hat{p}_{ij}$ and $\hat{\phi}_{ij}$ which populate the `p_hat` and `s_hat` matrices using the covariates provided and the coefficients ($\Upsilon_0$, $\Upsilon_1$, $\beta_0$, and $\beta_1$) stored in the `beta` list..
+- The `pro_capsur()` function was made to estimate the individual values of $\hat{p}_{ij}$ and $\hat{\phi}_{ij}$ which populate the `p_hat` and `s_hat` matrices using the covariates provided and the coefficients ($\Upsilon_0$, $\Upsilon_1$, $\beta_0$, and $\beta_1$) stored in the `beta` list..
 
--   The `location()` function which finds the first and last encounter for each carcass. This function is used in the `CJS_loglik()` function.
+- The `location()` function which finds the first and last encounter for each carcass. This function is used in the `CJS_loglik()` function.
 
--   The `CJS_loglik()` function that utilizes the `beta`, `ch`, `cap_X` and `surv_X` data to estimate the total log-likelihood of the given capture histories and covariates being observed, given the provided coefficients.
+- The `CJS_loglik()` function that utilizes the `beta`, `ch`, `cap_X` and `surv_X` data to estimate the total log-likelihood of the given capture histories and covariates being observed, given the provided coefficients.
 
 Recall that we can use @eq-indivdual_loglik to find the coefficients in @eq-logit1 and @eq-logittwo that produce the highest likelihood of occurring, or the maximum log-likelihood estimation. We can leverage the `optim()` call in R, a general-purpose optimization function, to pass different values of `beta` into the `CJS_loglike()` function to find the set that maximizes the log-likelihood.
 
@@ -735,13 +683,13 @@ CJS_data_prep<-function(ch,chops,covars){
 
 Again, the above is a longer function, so I'll break it down here:
 
--   Part 1: we begin by removing the first column of the capture history matrix `ch`, which contains the disctag data that can't be used in our escapement functions. We also change the values of sex from "F" and "M" to 1 and 0, respectively.
+- Part 1: we begin by removing the first column of the capture history matrix `ch`, which contains the disctag data that can't be used in our escapement functions. We also change the values of sex from "F" and "M" to 1 and 0, respectively.
 
--   Part 2: in this function we deal with the chops data `chops` by appending it to the original capture histories `ch`. We do this by creating a new matrix of capture histories for the chopped data and appends them to the original `ch` data.
+- Part 2: in this function we deal with the chops data `chops` by appending it to the original capture histories `ch`. We do this by creating a new matrix of capture histories for the chopped data and appends them to the original `ch` data.
 
--   Part 3: now that we've generated capture histories for all the chopped data, we also need to generate covariate data to utilize. First we start with the sex data, we do this by finding the proportion of male and female carcass in the original covariate data, and then assigning sex to the new capture histories based on that proportion.
+- Part 3: now that we've generated capture histories for all the chopped data, we also need to generate covariate data to utilize. First we start with the sex data, we do this by finding the proportion of male and female carcass in the original covariate data, and then assigning sex to the new capture histories based on that proportion.
 
--   Part 4: Finally we can generate the lengths covariate data for the added chops capture histories. This is done by taking the average male and female lengths, and assigning it to each of the added capture histories based on sex.
+- Part 4: Finally we can generate the lengths covariate data for the added chops capture histories. This is done by taking the average male and female lengths, and assigning it to each of the added capture histories based on sex.
 
 ::: {.callout-note appearance="simple"}
 ## Note
@@ -768,19 +716,19 @@ surv_X_prepped<-prepped_data$sex_matrix
 
 We've prepared our data, now we can run it and our `CJS_loglik_wrapper()` function through the R `optim()` function. First we set our initial values for `beta`, then we can run the optimizer to produce the coefficients with the maximum log-likelihood. The R `optim()` call uses the following parameters:
 
--   par: the initial coefficient parameters we'll be optimizing, in our case `initial_beta`.
+- par: the initial coefficient parameters we'll be optimizing, in our case `initial_beta`.
 
--   fn: the function we will be optimizing, `CJS_loglike_wrapper()` that we created earlier.
+- fn: the function we will be optimizing, `CJS_loglike_wrapper()` that we created earlier.
 
--   method: "BFGS", or the specific algorithm the `optim()` function will use for optimization. See the help page for the function by calling `?optim` for more information on potential algorithms it can utilize.
+- method: "BFGS", or the specific algorithm the `optim()` function will use for optimization. See the help page for the function by calling `?optim` for more information on potential algorithms it can utilize.
 
--   cap_X: the capture covariate lengths matrix we just prepared to be passed to the function.
+- cap_X: the capture covariate lengths matrix we just prepared to be passed to the function.
 
--   surv_X: the survival covariate sex matrix we just prepared to be passed to the function.
+- surv_X: the survival covariate sex matrix we just prepared to be passed to the function.
 
--   ch: the prepared capture history matrix to be passed to the function.
+- ch: the prepared capture history matrix to be passed to the function.
 
--   control: allows for various function control parameters, we will set the maximum number of iterations for here to 1000.
+- control: allows for various function control parameters, we will set the maximum number of iterations for here to 1000.
 
 ```{r,optimize beta}
 initial_beta=numeric(4)
@@ -960,19 +908,19 @@ CJS_bootstrap<-function(iterations,ch,cap_X,surv_X){
 
 The above `CJS_bootstrap()` function takes our `ch`, `cap_X`, and `surv_X` inputs, the target number of `iterations` (how many times to sample and run the model), and returns a dataset with the log-likelihood, escapement estimate, and duration for each iteration. Again we have another long and complicated function, so let's break it down:
 
--   Part 1: begins by setting an empty data frame for our results and the `initial_beta` of `c(0,0,0,0)`.
+- Part 1: begins by setting an empty data frame for our results and the `initial_beta` of `c(0,0,0,0)`.
 
--   Part 2: begins the for loop for the number of iterations set by the user.
+- Part 2: begins the for loop for the number of iterations set by the user.
 
--   Part 2.1: creates an index for each row of the original capture history data, and then uses the `sample()` call from base R to sample that list of indices with replacement. Sampling with replacement ensures that some of the original records will not be represented in the new iteration data, and some of the records will be over represented.
+- Part 2.1: creates an index for each row of the original capture history data, and then uses the `sample()` call from base R to sample that list of indices with replacement. Sampling with replacement ensures that some of the original records will not be represented in the new iteration data, and some of the records will be over represented.
 
--   Part 2.2: uses that `samp` list of sampled indices to create new capture histories and covariate matrices `cap_X` and `surv_X`.
+- Part 2.2: uses that `samp` list of sampled indices to create new capture histories and covariate matrices `cap_X` and `surv_X`.
 
--   Part 2.3: runs the `cpp_optim()` function using the new iteration data sets, stores parameter and loglikelihood estimates in `iter_beta` and `iter_lik` values.
+- Part 2.3: runs the `cpp_optim()` function using the new iteration data sets, stores parameter and loglikelihood estimates in `iter_beta` and `iter_lik` values.
 
--   Part 2.4: estimates escapement using the `total_escapement()` call and stores as `est_esc_iter`.
+- Part 2.4: estimates escapement using the `total_escapement()` call and stores as `est_esc_iter`.
 
--   Part 2.5: stores the iteration outputs in the `results` data frame before continuing loop again.
+- Part 2.5: stores the iteration outputs in the `results` data frame before continuing loop again.
 
 Let's use the `CJS_bootstrap()` function with 500 iterations to generate confidence intervals for our escapement estimate. Depending on the size of the dataset being used this can take anywhere from several minutes to several hours, so feel free to use less iterations when testing the functions.
 
@@ -1238,9 +1186,9 @@ It's important to not read too much into the results of these simulated populati
 
 Reviewing the outputs of our methods comparisons we can see the following results:
 
--   For smaller capture history data sets like our 'demo_data', the escapeMR methods is faster and both methods produced a similar range of confidence intervals and estimates of $\hat{N}$ (@fig-demo_data_R, @fig-demo_data_mra).
--   With a much larger data set, like the 2021 American River data, the escapeMR method was actually much slower than our R methods, and ended up failing to converge during optimization for 163 of the 500 bootstrapping iterations (@fig-mra_errors).
--   Using data from simulated populations, both methods produced estimates and confidence intervals close to the true population when $N$ was 2000. However when $N$ was 4000 the escapeMR method resulted in confidence intervals that overestimated escapement (@fig-sim_N2000, @fig-sim_N4000).
+- For smaller capture history data sets like our 'demo_data', the escapeMR methods is faster and both methods produced a similar range of confidence intervals and estimates of $\hat{N}$ (@fig-demo_data_R, @fig-demo_data_mra).
+- With a much larger data set, like the 2021 American River data, the escapeMR method was actually much slower than our R methods, and ended up failing to converge during optimization for 163 of the 500 bootstrapping iterations (@fig-mra_errors).
+- Using data from simulated populations, both methods produced estimates and confidence intervals close to the true population when $N$ was 2000. However when $N$ was 4000 the escapeMR method resulted in confidence intervals that overestimated escapement (@fig-sim_N2000, @fig-sim_N4000).
 
 {{< pagebreak >}}
 

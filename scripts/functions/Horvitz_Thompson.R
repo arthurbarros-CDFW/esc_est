@@ -1,6 +1,24 @@
-##########################################
-#Horvitz_Thompson
-##########################################
+#' @title Horvitz_Thompson
+#'
+#' @description Produces estimate of N_j for each observation period. Called by 
+#' total_escapement() and B_star().
+#' 
+#' @param p_hat matrix of estimated capture probabilities for each carcass at each
+#' sampling event.
+#' 
+#' @param ch matrix of capture histories.
+#' 
+#' @param subsampling_weeks matrix of weeks in which subsampling occured.
+#' 
+#' @param observed_per_week matrix of number of carcasses observed each week. Derived from 
+#' number tagged each week * sub.sampling.
+#' 
+#' @param tagged_per_week matrix of number of carcasses tagged each week. Derived
+#' as colSums(ch>=1,na.rm=T).
+#' 
+#' @return list with estimate of N_j for each observation period. Called by 
+#' total_escapement() and B_star().
+#' 
 Horvitz_Thompson<-function(p_hat,ch,
                            subsampling_weeks,observed_per_week,
                            tagged_per_week){

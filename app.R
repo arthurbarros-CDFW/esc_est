@@ -66,23 +66,6 @@ ui <- fluidPage(
       helpText("* Required field"),
       helpText("Note: All files should be in CSV format with headers."),
       
-      #################
-      #model selection
-      #################
-      conditionalPanel(
-        condition = "input.use_cov == true",
-        checkboxGroupInput("use_model", "Select one or more model",
-                           c(	"constant capture and survival rates",
-                              "constant capture rate and survival related to sex",
-                              "constant capture rate and survival related to length",
-                              "capture related to sex and constant survival rate",
-                              "capture related to length and constant survival rate",
-                              "capture related to sex and survival related to length",
-                              "capture related to length and survival related to sex",
-                              "capture related to sex and survival related to sex",
-                              "capture related to length and survival related to length"))
-      ),
-      
       #button to run analysis
       actionButton("run_models", "run CJS models", 
                    class = "btn-primary")
@@ -158,6 +141,8 @@ server <- function(input, output, session) {
   model_reports<-reactiveVal(NULL)
   selected_model<-reactiveVal(NULL)
   results_text<-reactiveVal(NULL)
+  sex_used<-reactiveVal(NULL)
+  length_used<-reactiveVal(NULL)
   
   #observe file uploads
   observe({
@@ -218,6 +203,10 @@ server <- function(input, output, session) {
     chops=uploaded_data$chop
     covars=uploaded_data$cov
     
+    #order ch and covars by DiscTag
+    ch<-ch[order(ch[[1]]),]
+    covars<-covars[order(covars[[1]]),]
+    
     #handle intervals
     if(input$use_ints && !is.null(uploaded_data$ints_input)) {
       ints <- uploaded_data$ints_input
@@ -245,14 +234,9 @@ server <- function(input, output, session) {
       sub.sampling = rep(1,ncol(ch)-1)
     }
     
-    #prepare ch and covar data
+    #prepare ch
     ch=ch[-1]
     null_matrix<-matrix(1,nrow=nrow(ch),ncol=ncol(ch))
-    
-    #process covariates
-    if(input$use_cov && !is.null(covars)){
-      covars$sex <- as.numeric(ifelse(covars$sex %in% c('F', "f"), 1, 0))
-    }
     
     #prepare tagged and observed_per_week for total_escapement()
     tagged_per_week<-colSums(ch>=1,na.rm=T)
@@ -289,14 +273,24 @@ server <- function(input, output, session) {
       ch <- ch %>% rbind(clean_chops)
     }
     
-    if(input$use_cov && !is.null(covars)){
-      lengths_matrix <- matrix(covars$length,
+    #process covariates and set up if not both available
+    if(input$use_cov && !is.null(covars$length)){
+      lengths_matrix <- matrix(as.numeric(covars$length),
                                nrow = nrow(ch), ncol = ncol(ch))
-      sex_matrix <- matrix(as.numeric(covars$sex),
-                           nrow = nrow(ch), ncol = ncol(ch))
+      length_used(TRUE)
     } else {
       lengths_matrix <- null_matrix
+      length_used(FALSE)
+    }
+    
+    if(input$use_cov && !is.null(covars$sex)){
+      covars$sex <- as.numeric(ifelse(covars$sex %in% c('F', "f"), 1, 0))
+      sex_matrix <- matrix(as.numeric(covars$sex),
+                           nrow = nrow(ch), ncol = ncol(ch))
+      sex_used(TRUE)
+    } else {
       sex_matrix <- null_matrix
+      sex_used(FALSE)
     }
     
     #prepare model covariates based on selected models
@@ -304,8 +298,7 @@ server <- function(input, output, session) {
       covars_used = input$use_cov,
       sex_matrix = sex_matrix,
       lengths_matrix = lengths_matrix,
-      ch = ch,
-      selected_models = input$use_model
+      ch = ch
     )
     
     #return formatted data
@@ -348,6 +341,7 @@ server <- function(input, output, session) {
   #########################
   observeEvent(input$run_models,{
     req(prepare_data())
+
     prepped_data <- prepare_data()
     
     model_list<-c( "constant capture and survival rates",
@@ -359,6 +353,23 @@ server <- function(input, output, session) {
                    "capture related to length and survival related to sex",
                    "capture related to sex and survival related to sex",
                    "capture related to length and survival related to length")
+    
+    #set models to use based on what covars available
+    if(sex_used() & length_used()){
+      models_to_use<-model_list
+    } else if(sex_used() & !length_used()){
+      models_to_use<-c( "constant capture and survival rates",
+                        "constant capture rate and survival related to sex",
+                        "capture related to sex and constant survival rate",
+                        "capture related to sex and survival related to sex")
+    } else if(!sex_used() & length_used()){
+      models_to_use<-c( "constant capture and survival rates",
+                        "constant capture rate and survival related to length",
+                        "capture related to length and constant survival rate",
+                        "capture related to length and survival related to length")
+    } else {
+      models_to_use<-c("constant capture and survival rates")
+    }
     
     #create a progress object
     progress <- Progress$new(session, min=0, max=1)
@@ -379,35 +390,30 @@ server <- function(input, output, session) {
     observed_per_week<-prepped_data$observed_per_week
     tagged_per_week<-prepped_data$tagged_per_week
     
-    #display 
-    output$model_output <- renderPrint({
-      cat("Selected models:", paste(model_data$models_ran, collapse = ", "), "\n")
-      cat("Number of capture histories:", nrow(model_data$ch), "\n")
-    })
-    
     #set initial parameters
     c_hat = 1
     initial_beta=numeric(4)
     model_results=data.frame()
-    total_models <- length(model_data$models_ran)
+    total_models <- length(models_to_use)
     
-    for(i in model_data$models_ran){
-      current_model <- model_data$models_ran[i]
+    for(i in seq_along(models_to_use)){
+      current_model <- models_to_use[i]
       #update progress
       progress$set(
-        message = paste("Processing Model", model_list[i]),
+        message = paste("Processing Model", models_to_use[i]),
         detail = paste("Model:", i),
         value = (i-1)/total_models
       )
       
-      model_num=i
+      model_num=which(model_list==current_model)#link model to use to model_list
+      
       starttime<-Sys.time()
       {gc()
         optim_results <- cpp_optim(
           beta = initial_beta,
           ch = as.matrix(model_data$ch),
-          cap_X = as.matrix(model_data$cap_X[[i]]),
-          surv_X = as.matrix(model_data$surv_X[[i]]),
+          cap_X = model_data$cap_X[[model_num]],
+          surv_X = model_data$surv_X[[model_num]],
           ints = intervals)
       }
       endtime<-Sys.time()
@@ -423,13 +429,13 @@ server <- function(input, output, session) {
       
       fit_results <- cjs_fit_simple(ch=prepped_data$ch,
                                     beta=optim_results$par,
-                                    cap_X=model_data$cap_X[[i]],
-                                    surv_X=model_data$surv_X[[i]],
+                                    cap_X=model_data$cap_X[[model_num]],
+                                    surv_X=model_data$surv_X[[model_num]],
                                     ints=intervals)
 
       c_hat<-fit_results
       
-      n_params<-length(beta)
+      n_params<-length(optim_results$par)
       
       AIC=2*loglik+2*n_params
       AICc=AIC+((2*n_params)*(n_params+1))/(nan-n_params-1)
@@ -437,7 +443,7 @@ server <- function(input, output, session) {
       QAICC=QAIC+(2*n_params*(n_params+1))/(nan-n_params-1)
       
       d<-data.frame(#"escapement"=ceiling(est_escapement$escapement),
-                    model=model_list[i],
+                    model=models_to_use[i],
                     "optim_speed"=round(optim_speed,2),
                     #"AIC"=signif(AIC,3),
                     "AICc"=signif(AICc,3),
@@ -642,9 +648,9 @@ server <- function(input, output, session) {
       
       plot_escapement(esc_p)
       
-      results_text(paste("Lower CI: ",ci$lower_ci,
-                         ". Estimated Escapement: ",est_escapement,
-                         ". Upper CI: ",ci$upper_ci, sep=""))
+      results_text(paste("Lower CI: ",ceiling(ci$lower_ci),
+                         ". Estimated Escapement: ",ceiling(est_escapement),
+                         ". Upper CI: ",ceiling(ci$upper_ci), sep=""))
     }
     
   })
@@ -671,7 +677,7 @@ server <- function(input, output, session) {
   
   ###########################
   #download handlers
-  ###########################
+  ########################### test
   
   output$download_esc_plot <- downloadHandler(
     filename = function() {

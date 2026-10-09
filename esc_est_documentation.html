@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Arthur Barros">
+
+<title>esc_est: An escapement estimator for Central Valley Chinook Salmon Carcass Surveys</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="esc_est_documentation_files/libs/clipboard/clipboard.min.js"></script>
+<script src="esc_est_documentation_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="esc_est_documentation_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="esc_est_documentation_files/libs/quarto-html/popper.min.js"></script>
+<script src="esc_est_documentation_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="esc_est_documentation_files/libs/quarto-html/anchor.min.js"></script>
+<link href="esc_est_documentation_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="esc_est_documentation_files/libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="esc_est_documentation_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="esc_est_documentation_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="esc_est_documentation_files/libs/bootstrap/bootstrap-efbb37e9afcc02144ebbc7afd12a776f.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">esc_est: An escapement estimator for Central Valley Chinook Salmon Carcass Surveys</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Arthur Barros </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>The following documentation reviews the methods, models, and code used to estimate the annual escapement of returning adult Central Valley Chinook Salmon (CVCS). This documentation begins with a user guide for utilizing the esc_est Shiny application, includes further details covering the Cormack-Jolly-Seber and super-population models, and details the functions built into the esc_est application.</p>
+<p>The esc_est application is built in R using the Shiny package and currently hosted on the shinyapps.io page at <a href="https://arthurbarros-cdfw.shinyapps.io/esc_est/" class="uri">https://arthurbarros-cdfw.shinyapps.io/esc_est/</a>. This is a stand alone application that allows CVCS carcass survey teams to upload collected survey data and produce estimates of total escapement as well as uncertainty. The esc_est app is based on the model and methods used by the escapeMR application (<a href="https://tmcd.shinyapps.io/escapemr/" class="uri">https://tmcd.shinyapps.io/escapemr/</a>) created by Trent McDonald for use by CDFW survey staff in 2020. The escapeMR application and related R package (<a href="https://gitlab.com/tmcd/escapemr" class="uri">https://gitlab.com/tmcd/escapemr</a>) has been used by staff for several years to produce estimates of escapement; however, with the retiring of its author, the package and application has become a “black-box” model that is no longer updated or maintained. Currently the Department has no ways to make necessary changes to escapeMR, and documentation on how exactly it works is lacking. The esc_est application and related documentation aims to address this problem and provide a model that can be maintained and controlled by Department staff.</p>
+<p>For general assistance with using and understanding the esc_est application and methods, or to report bugs or other issues, feel free to contact the author at <a href="mailto:Arthur.Barros@wildlife.ca.gov">Arthur.Barros@wildlife.ca.gov</a>. The code that builds the esc_est application is updated on a GitHub repository at <a href="https://github.com/arthurbarros-CDFW/esc_est" class="uri">https://github.com/arthurbarros-CDFW/esc_est</a>.</p>
+</section>
+<section id="user-guide-for-esc_est" class="level1">
+<h1>User Guide for esc_est</h1>
+<div id="fig-homescreen" class="quarto-float quarto-figure quarto-figure-center anchored" alt="Image showing default page for esc_est." data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-homescreen-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="doc_figures/app_1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" alt="Image showing default page for esc_est.">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-homescreen-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: The default page of the esc_est application.
+</figcaption>
+</figure>
+</div>
+<p>Upon opening the esc_est application the user will see the home screen (<a href="#fig-homescreen" class="quarto-xref">Figure&nbsp;1</a>) with data upload options on the the left side and result tabs (empty as default) on the right. The CJS model used in the application requires capture-history data to be uploaded before running, and also allows for a few other optional data sets to be utilized.</p>
+<section id="uploading-data" class="level2">
+<h2 class="anchored" data-anchor-id="uploading-data"><em>uploading data</em></h2>
+<p>The esc_est application uses different data inputs to estimate the total escapement of CVCS to the relevant survey location. Carcasses are captured over <span class="math inline">\(k\)</span> occasions, usually weekly sampling events, marked with disctags, relevant covariates are recorded, and deposited back into the system for future recapture. All data must be uploaded as a .csv file with the proper formatting. Examples of file structure can be found in the GitHub repository at <a href="https://github.com/arthurbarros-CDFW/esc_est/tree/main/data" class="uri">https://github.com/arthurbarros-CDFW/esc_est/tree/main/data</a>. Uploaded data can be viewed in the “Data Preview” tab to ensure proper formatting and reading. Below is a list of data that can be uploaded to the application:</p>
+<ul>
+<li><p><strong>Capture histories</strong> (required): the records of capture and recapture for a given carcass in this format</p>
+<p><span class="math display">\[\begin{bmatrix}
+DiscTag &amp; S1 &amp; S2 &amp; S3 &amp; S4 &amp;... &amp; k\\
+1601 &amp; 1 &amp; 0 &amp; 1 &amp; 1 &amp;...\\
+1602 &amp; 1 &amp; 0 &amp; 0 &amp; 1 &amp;...\\
+1603 &amp; 0 &amp; 0 &amp; 1 &amp; 1 &amp;...\\
+1604 &amp; 1 &amp; 1 &amp; 1 &amp; 2 &amp;...\\
+\end{bmatrix}\]</span></p>
+<p>Each record is for a tagged carcass and the subsequent sampling periods <span class="math inline">\(j\)</span>. A value of 0 indicates the carcass was not captured, a value of 1 indicates the carcass was captured, and a value of 2 indicates the carcass was captured and “chopped” (beheaded) and removed from the system.</p></li>
+<li><p><strong>Chops</strong> (optional): the record of the number of carcasses removed from the system upon first capture. This is done when the carcass is deteriorated beyond identification or measurement, and won’t last long enough for further recaptures. The data can look like:</p>
+<p><span class="math display">\[\begin{bmatrix}
+S1 &amp; S2 &amp; S3 &amp; S4 &amp; S5 &amp;... &amp; k\\
+0 &amp; 4 &amp; 27 &amp; 18 &amp; 20
+\end{bmatrix}\]</span></p>
+<p>The chops data requires just one row recording the total chopped counts for each sampling period.</p></li>
+<li><p><strong>Covariates</strong> (optional): records of relevant covariates for each captured and tagged carcass. Covariate data can be used to model the probability of capture (<span class="math inline">\(p\)</span>) and survival (<span class="math inline">\(\phi\)</span>) for each carcass. Currently the esc_est application is limited to length and sex data, but can be expanded upon in the future. The covariate data can look like:</p>
+<p><span class="math display">\[\begin{bmatrix}
+DiscTag &amp; Sex &amp; Length\\
+1601 &amp; F &amp; 200\\
+1602 &amp; F &amp; 223 \\
+1603 &amp; M &amp; 195\\
+1604 &amp; M &amp; 180\\
+\end{bmatrix}\]</span></p>
+<p>Each tagged carcass has length and sex recorded in the example data. A covariate table can be uploaded with only sex or length if both were not recorded. If covariate data is not included, the CJS model will assume homogenous capture and survival probabilities for all fish.</p></li>
+<li><p><strong>Intervals</strong> (optional): Occasionally surveys may miss sampling periods for a variety of reasons. When this occurs it’s important to incorporate these missed sampling periods into the model. In this instance the user should upload a small table that shows the intervals between survey periods:</p>
+<p><span class="math display">\[\begin{bmatrix}
+S1 &amp; S2 &amp; S3 &amp; S4 &amp; S5\\
+1 &amp; 1 &amp; 1 &amp; 2 &amp; 1
+\end{bmatrix}\]</span></p>
+<p>The above intervals tables shows a survey running over five sampling periods, in which there was a sampling gap between sampling periods three and four. Due to this missed sampling period, we can record an interval of “2” for period four, to represent the two intervals between it and the prior sampling period.</p></li>
+<li><p><strong>Subsampling</strong> (optional): In some years, the escapement to survey grounds can be so high that it becomes unwieldy to handle or tag all carcasses encountered. This occurred during the 2025 sampling season on the American River when escapement was the highest seen in twenty years, prompting the survey teams to only handle one out of every other carcass. This necessitated the creation of methods to incorporate sub-sampling into the modelling. In order to process sub-sampling, the user should upload a dataset similar to that of the above intervals data:</p>
+<p><span class="math display">\[\begin{bmatrix}
+S1 &amp; S2 &amp; S3 &amp; S4 &amp; S5\\
+1 &amp; 1 &amp; 2 &amp; 2 &amp; 1
+\end{bmatrix}\]</span></p>
+<p>In the above data set, for weeks one, two, and five, carcasses were marked or checked for marks at the rate in which they were encountered. During weeks three and four every other carcass encountered was marked or checks for marks, so for those records the entry is “2”.</p></li>
+</ul>
+</section>
+<section id="model-comparison-and-selection" class="level2">
+<h2 class="anchored" data-anchor-id="model-comparison-and-selection"><em>Model comparison and selection</em></h2>
+<p>Once the required and optional data is uploaded to the application, the user can click the “run CJS models” button at the bottom of the left panel. This begins the first step of model selection by fitting a null model as well as any models using covariates based on available data, and produces an output table showing model comparisons <a href="#fig-model_comparison" class="quarto-xref">Figure&nbsp;2</a> .</p>
+<div id="fig-model_comparison" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-model_comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="doc_figures/model_comparison.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-model_comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Model fit and comparison output.
+</figcaption>
+</figure>
+</div>
+<p>The “Model Results” table shows:</p>
+<ul>
+<li><p>model - details how capture and survival were modeled.</p></li>
+<li><p>optim_speed - shows time (in seconds) for how long it took to optimize the loglikelihood of the model.</p></li>
+<li><p>AICc and QAICC - model “quality” tests (Akaike information criterion and Quasi-Akaike information criterions corrected for small sample sizes). The model results table is sorted so that the model with the best QAICC is at top and selected by default.</p></li>
+<li><p>cap_beta1 and cap_beta2 - coefficient values for the capture probability model.</p></li>
+<li><p>surv_beta1 and surv_beta2 - coefficient values for the survival probability model.</p></li>
+<li><p>loglik - the estimated log-likelihood of the model from the estimated coefficients.</p></li>
+<li><p>c_hat - overdispersion parameter for model testing.</p></li>
+</ul>
+<p>The “Model Results” table defaults to select the model of best fit, but the user can click on a row to select a different model for escapement estimation. When a model is selected, the user can then check the “Bootstrap for confidence intervals?” and set the number of bootstrap iterations to use for estimating uncertainty. This option allows the user to calculate upper and lower 95% confidence intervals for the escapement estimate It is suggested that at least 100 bootstrap iterations are run to generate confidence intervals, and depending on the size of the data set this can take quite some time to process.</p>
+<p>Finally the user can click on the “Estimate Escapement” button. This will begin estimating escapement using the selected model, and a progress bar will be displayed showing the current bootstrapping iteration when applicable.</p>
+</section>
+<section id="escapement-results" class="level2">
+<h2 class="anchored" data-anchor-id="escapement-results"><em>Escapement Results</em></h2>
+<div id="fig-escapement_plot" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-escapement_plot-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="doc_figures/escapement_plot.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-escapement_plot-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Output plot showing escapement estimate and upper and lower confidence intervals estimated with 100 bootstrap iterations.
+</figcaption>
+</figure>
+</div>
+<p>Once the model is finished running the user can click on the “Escapement Results” tab which will display a frequency plot of escapement estimates derived from model strapping, and the upper and lower 95% confidence intervals <a href="#fig-escapement_plot" class="quarto-xref">Figure&nbsp;3</a> . If bootstrapping was not conducted no plot will be displayed, only a text output showing a point estimate for total escapement.</p>
+</section>
+</section>
+<section id="an-overview-of-the-cvcs-escapement-model" class="level1">
+<h1>An Overview of the CVCS Escapement Model</h1>
+<p>CVCS escapement estimation is made using a mark-recapture Cormack-Jolly-Seber (CJS) model. Mark and recapture is a common method for ecologists to estimate the size of a population of animals without needing to count each individual. Typically, an initial ‘marking’ period is conducted in which a sample of the population is captured and marked in some way so that those individuals can be recognized in the future. The marked individuals are then returned to the greater population and allowed time to mix back in. Later, another sampling period is conducted, during which a sample of the population is collected again, and the number of marked individuals in this sample is counted. This ratio can be used to estimate the size of the total population because the proportion of marked individuals in the second sample is assumed to be proportional to the number of total marked individuals in the population.</p>
+<p>Regarding the CVCS escapement, mark-recapture surveys are conducted throughout the Central Valley in what is known as a “carcass survey.” Periodically, field crews survey Chinook salmon spawning grounds, looking for adult carcasses. These carcasses are marked with disk tags and returned to the river. The crews usually return within a week to see if the carcasses are still in the system and mark new carcasses that have arrived.</p>
+<section id="the-lincoln-petersen-estimate" class="level2">
+<h2 class="anchored" data-anchor-id="the-lincoln-petersen-estimate"><em>The Lincoln-Petersen estimate</em></h2>
+<p>The classic mark-recapture estimator is known as the <strong>Lincoln-Petersen</strong> estimate<span class="citation" data-cites="Petersen1896 Lincoln1930">(<a href="#ref-Petersen1896" role="doc-biblioref">Petersen 1896</a>; <a href="#ref-Lincoln1930" role="doc-biblioref">Lincoln 1930</a>)</span> and utilizes the equation:</p>
+<p><span class="math display">\[\hat{N}=\frac{MC}{R}\]</span></p>
+<ul>
+<li><p><span class="math inline">\(M\)</span> is the number of individuals marked and released during the initial marking period.</p></li>
+<li><p><span class="math inline">\(C\)</span> is the number of individuals (both marked and unmarked) captured in the recapture period.</p></li>
+<li><p><span class="math inline">\(R\)</span> is the number of marked individuals recaptured in the later recapture period.</p></li>
+<li><p><span class="math inline">\(\hat{N}\)</span> is the estimate of population abundance.</p></li>
+</ul>
+<p>In the diagram below (<a href="#fig-lp_model" class="quarto-xref">Figure&nbsp;4</a>), 7 fish from the population are captured and marked (<span class="math inline">\(M\)</span>) during an initial capture and marking period. Then during a follow up recapture period, 7 fish are again captured (<span class="math inline">\(C\)</span>), and of those 3 have markings (<span class="math inline">\(R\)</span>). This provides us with an estimate of a total population (<span class="math inline">\(\hat{N}\)</span>) of roughly 16 fish.</p>
+<div id="fig-lp_model" class="quarto-float quarto-figure quarto-figure-center anchored" data-fig-align="center">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-lp_model-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="doc_figures/figure_LP.png" class="img-fluid quarto-figure quarto-figure-center figure-img" width="357">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-lp_model-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: A conceptual diagram of the classic Lincoln-Petersen mark-recapture method.
+</figcaption>
+</figure>
+</div>
+<p>There are several important assumptions of the Lincoln-Petersen method:</p>
+<ol type="1">
+<li><p>The population is closed so that <span class="math inline">\(N\)</span> is constant during the study period. No deaths, no births, no immigration or emigration.</p></li>
+<li><p>The probability of capture is equal across all individuals.</p></li>
+<li><p>Fish do not lose their markings between the two sampling periods.</p></li>
+<li><p>All marked fish recaptured during the second sampling period are accurately enumerated and recorded.</p></li>
+</ol>
+<p>The Lincoln-Petersen method was expanded upon upon by Zoe Schnabel <span class="citation" data-cites="Schnabel1938">(<a href="#ref-Schnabel1938" role="doc-biblioref">1938</a>)</span> with the <strong>Schnabel estimator</strong>, which allows for multiple periods of capture and recapture instead of just two.</p>
+<p><span class="math display">\[\hat{N}=\frac{\sum_t(C_tM_t)}{\sum_tR_t}\]</span></p>
+<p>This allows for marking to occur during multiple sampling periods <span class="math inline">\(t\)</span>. One primary advantage of this method is multiple sampling periods allow for the detection of violation of the above assumptions. Regression of the proportion of marked animals to previously marked animals (<span class="math inline">\(\frac{R_t}{C_t} \sim M_{t-1}\)</span>) will be straight if assumptions are met, and curved if the assumptions are violated.</p>
+<p>If we examine our the annual carcass surveys performed across the Central Valley for returning Chinook salmon, we can easily identify ways in which the system violates the assumptions of the Lincoln-Petersen method:</p>
+<ul>
+<li><p><strong>Populations are open:</strong> throughout the survey period adult Chinook arrive in the survey area, spawn, and die. At the same time spawned out carcasses that may or may not have been marked and counted are removed from the system either by scavengers, decay, or being flushed downstream.</p></li>
+<li><p><strong>Probability of capture is not homogeneous:</strong> probability of”capture” for individual Chinook carcasses is really the probability it is spotted by survey field crews. This can be dependent on a number of factors including carcass size, carcass sex, water flow rates, and turbidity.</p></li>
+</ul>
+<p>The above violations of the Lincoln-Petersen estimates could cause large biases in abundance estimates, and suggests that using this closed population model is ill advised.</p>
+</section>
+<section id="the-cormack-jolly-seber-model" class="level2">
+<h2 class="anchored" data-anchor-id="the-cormack-jolly-seber-model"><em>The Cormack-Jolly-Seber model</em></h2>
+<p>To deal with open populations and heterogeneous capture probabilities we can utilize a Cormack-Jolly-Seber (CJS) model <span class="citation" data-cites="Cormack1964 Jolly1965 Seber1965">(<a href="#ref-Cormack1964" role="doc-biblioref">Cormack 1964</a>; <a href="#ref-Jolly1965" role="doc-biblioref">Jolly 1965</a>; <a href="#ref-Seber1965" role="doc-biblioref">Seber 1965</a>)</span>, which can deal with population changes during the survey period, as well as differences in capture probability among individuals. The CJS method does not directly provide estimates of abundance, instead it utilizes multiple sampling events during the survey period and allows us to calculate two important parameters:</p>
+<ul>
+<li><p><span class="math inline">\(\phi_{ij}\)</span> : the probability carcass <span class="math inline">\(i\)</span> “survives” (remains in the system) from period <span class="math inline">\(j\)</span> to <span class="math inline">\(j+1\)</span>.</p></li>
+<li><p><span class="math inline">\(p_{ij}\)</span> : the probability carcass <span class="math inline">\(i\)</span> is captured during period <span class="math inline">\(j\)</span>.</p></li>
+</ul>
+<p>We will generate estimates for <span class="math inline">\(p_{ij}\)</span> and <span class="math inline">\(\phi_{ij}\)</span> using the CJS Maximum Likelihood Estimation methods later, but for now know that the probability of capture can be used to estimate the population size at period <span class="math inline">\(j\)</span> using the “<strong>Horvitz-Thompson estimator</strong>” <span class="citation" data-cites="Horvitz1952 Nichols2005">(<a href="#ref-Horvitz1952" role="doc-biblioref">Horvitz and Thompson 1952</a>; <a href="#ref-Nichols2005" role="doc-biblioref">Nichols 2008</a>)</span>:</p>
+<p><span id="eq-horvitz_thompson"><span class="math display">\[\hat{N_j}=\sum_{i=1}^{n}\frac{h_{ij}}{\hat{p}_{ij}} \tag{1}\]</span></span></p>
+<p>Where <span class="math inline">\(h_{ij}\)</span> is either a 0 or 1 capture indicator for carcass <span class="math inline">\(i\)</span> at period <span class="math inline">\(j\)</span>, and <span class="math inline">\(n\)</span> is the number of all carcasses observed over all survey periods. Basically the abundance of carcasses at time <span class="math inline">\(j\)</span> is equal to the sum of all the carcasses captured during that period divided by their capture probability.</p>
+<p>Typically the total population estimate <span class="math inline">\(\hat{N}\)</span> can be calculated by taking the average value of <span class="math inline">\(\hat{N}_j\)</span>, however there are problems with this method when many individuals are entering and leaving the population during the survey. This can be improved by using a <em>superpopulation</em> modification <span class="citation" data-cites="Ryan2013">(<a href="#ref-Ryan2013" role="doc-biblioref">Bergman et al. 2013</a>)</span> to estimate total escapement as:</p>
+<p><span id="eq-superpopulation_mod"><span class="math display">\[\hat{N}_{escapement}=\hat{N}_2\frac{ln(\tilde{\phi}_1)}{\tilde{\phi}_1-1}+B_2^*+B_3^*+...+B_{S-2}^* \tag{2}\]</span></span></p>
+<p>Where <span class="math inline">\(S\)</span> is the total number of all sampling occasions and <span class="math inline">\(B_j^*\)</span>, the adjusted number of “births” (new adults entering the system and dying) between <span class="math inline">\(j\)</span> and <span class="math inline">\(j+1\)</span>, is:</p>
+<p><span class="math display">\[B_j^* = \tilde{B}_j\frac{ln(\tilde{\phi}_j)}{\tilde{\phi}_1-1}\]</span></p>
+<p><span class="math inline">\(\tilde{B}_j\)</span> is the total “births” for period <span class="math inline">\(j\)</span>:</p>
+<p><span class="math display">\[\tilde{B}_j=\hat{N}_{j+1} - \tilde{\phi}_{j}[\hat{N}_j-(n_j-R_j)]\]</span></p>
+<p>and <span class="math inline">\(R_j\)</span> is the number of carcasses released with disctags during period <span class="math inline">\(j\)</span>, <span class="math inline">\(n_j\)</span> is the number of carcasses captured during period <span class="math inline">\(j\)</span>, and <span class="math inline">\(\hat{N}_j\)</span> is the estimate of abundance during period <span class="math inline">\(j\)</span> derived from the Horvitz-Thompson estimator in <a href="#eq-horvitz_thompson" class="quarto-xref">Equation&nbsp;1</a>.</p>
+</section>
+<section id="the-cvcs-escapement-model" class="level2">
+<h2 class="anchored" data-anchor-id="the-cvcs-escapement-model"><em>The CVCS Escapement Model</em></h2>
+<p>While the <a href="#eq-superpopulation_mod" class="quarto-xref">Equation&nbsp;2</a> used to estimate abundance using carcass survey data may seem relatively straight forward, it is heavily dependent on estimates of <span class="math inline">\(p_{ij}\)</span> and <span class="math inline">\(\phi_{ij}\)</span>, which are much more complex to get.</p>
+<p>We can represent the “capture history” of carcass <span class="math inline">\(i\)</span> each sampling period <span class="math inline">\(j\)</span> using the estimates of capture and survival probability as:</p>
+<p><span class="math display">\[ \begin{matrix} j=1&amp;\xrightarrow {\phi_{1i}}&amp; j=2&amp;\xrightarrow {\phi_{2i}}&amp; j=3&amp;\xrightarrow {\phi_{3i}}&amp; j=4&amp;\xrightarrow {\phi_{4i}}&amp; j=5 &amp;...\\   &amp;&amp;p_{2i} &amp;&amp;p_{3i} &amp;&amp;p_{4i} &amp;&amp;p_{5i} \end{matrix} \]</span></p>
+<p>Let’s say we have the following , simplified, set of capture histories for four carcass, across four different sampling periods:</p>
+<p><span class="math display">\[\begin{bmatrix} DiscTag &amp; S1 &amp; S2 &amp; S3 &amp; S4 \\ 1601 &amp; 1 &amp; 0 &amp; 1 &amp; 1 \\ 1602 &amp; 1 &amp; 0 &amp; 0 &amp; 1 \\ 1603 &amp; 0 &amp; 0 &amp; 1 &amp; 1 \\ 1604 &amp; 1 &amp; 1 &amp; 1 &amp; 2 \\ \end{bmatrix}\]</span></p>
+<p>If we look at the first row of data, the capture history for the carcass with disc-tag number 1601, we see it was captured and marked during period 1, not captured in period 2, and then captured again in periods 3 and 4. We can assign a probability of observing this capture history as:</p>
+<p><span class="math display">\[P(1011|\text{release at period 1})=\phi_1(1-p_2)\phi_2p_3\phi_3p_4\]</span></p>
+<p>In the above, <span class="math inline">\((1-p_2)\)</span> is the probability that the carcass is not captured at period <span class="math inline">\(j=2\)</span>. Now we can do the same with the rest of the example capture histories that we saw:</p>
+<p><span class="math display">\[P_1(1011 |\text{release at period 1})=\phi_1(1-p_2)\phi_2p_3\phi_3p_4\]</span></p>
+<p><span class="math display">\[P_2(1001|\text{release at period 1})=\phi_1(1-p_2)\phi_2(1-p_3)\phi_3p_4\]</span></p>
+<p><span class="math display">\[P_3(0011|\text{release at period 3})=\phi_3p_4\]</span></p>
+<p><span class="math display">\[P_4(1112|\text{release at period 1})=\phi_1p_2\phi_2p_3\phi_3p_4\]</span></p>
+<p>In the above note the 2 at the end of the last capture history representing a chopped event. Also note that for <span class="math inline">\(P_3\)</span> the likelihood conditions on the initial observation at <span class="math inline">\(j=3\)</span> , and excludes estimates of <span class="math inline">\(\phi\)</span> or <span class="math inline">\(p\)</span> before that period.</p>
+<p>We can use those equations to estimate the total likelihood of observing all the capture histories observed as:</p>
+<p><span class="math display">\[L=P_1*P_2*P_3*P_4\]</span></p>
+<p>Or as the product of all <span class="math inline">\(n\)</span> of the capture history probabilities <span class="citation" data-cites="Amstrup2005">(<a href="#ref-Amstrup2005" role="doc-biblioref">Amstrup et al. 2005</a>)</span>:</p>
+<p><span class="math display">\[L=\prod_{i=1}^n P_i\]</span></p>
+<p>To make the computing of this probability easier we can log-transform our likelihoods so that:</p>
+<p><span id="eq-log_likelihood"><span class="math display">\[ln(L)=\sum_{i=1}^n ln(P_i) \tag{3}\]</span></span></p>
+<p>This is known as the “log-likelihood” of the probability. Using this simple example above, we have a way to estimate the probability of observing a set of given capture histories if we have the capture (<span class="math inline">\(p\)</span>) and survival (<span class="math inline">\(\phi\)</span>) probabilities associated with each capture history.</p>
+<p>Of course, we don’t know these probabilities, and they will likely vary for each carcass and each period. Possible covariates could include size of carcass, carcass sex, or environmental variables such as temperature, flow, or turbidity. For CVCS work, we currently utilize covariates of sex and length to try and estimate capture and survival probabilities. For our example we will consider a CJS model in which capture probability is a function of length, and survival probability is a function of sex.</p>
+<p><span class="math display">\[P(capture|length) = \hat{p}_{ij}\]</span></p>
+<p><span class="math display">\[P(survival|sex) = \hat{\phi}_{ij}\]</span></p>
+<p>These functions can best be represented with logistic regression models:</p>
+<p><span class="math display">\[\hat{\phi}_{ij}=\frac{e^{\Upsilon_0+\Upsilon_1x_{ij}}}{1+e^{\Upsilon_0+\Upsilon_1x_{ij}}}\]</span></p>
+<p><span class="math display">\[\hat{p}_{ij}=\frac{e^{\beta_0+\beta_1y_{ij}}}{1+e^{\beta_0+\beta_1y_{ij}}}\]</span></p>
+<p>Where <span class="math inline">\(x_{ij}\)</span> is the sex of a given carcass, and <span class="math inline">\(y_{ij}\)</span> it’s length. To ease in estimating the coefficients <span class="math inline">\(\Upsilon\)</span> and <span class="math inline">\(\beta\)</span> we can turn the above into linear models:</p>
+<p><span class="math display">\[ln(\frac{\hat{\phi}_{ij}}{1-\hat{\phi}_{ij}})=\Upsilon_0+\Upsilon_1x_{ij}\]</span></p>
+<p><span class="math display">\[ln(\frac{\hat{p}_{ij}}{1-\hat{p}_{ij}})=\beta_0+\beta_1y_{ij}\]</span></p>
+<p>with <span class="math inline">\(ln(\frac{\hat{\phi}_{ij}}{1-\hat{\phi}_{ij}})\)</span> and <span class="math inline">\(ln(\frac{\hat{p}_{ij}}{1-\hat{p}_{ij}})\)</span> as our logit functions, used as “link functions” to model the probabilities as linear functions of covariates <span class="citation" data-cites="Amstrup2005">(<a href="#ref-Amstrup2005" role="doc-biblioref">Amstrup et al. 2005</a>)</span>.</p>
+<p>You can see above that if we can estimate the coefficients of those two equations, for a given sex or length (<span class="math inline">\(x_{ij},y_{ij}\)</span>) we can estimate the corresponding probability of survival or capture. To estimate the coefficients of <span class="math inline">\(\Upsilon_0\)</span>, <span class="math inline">\(\Upsilon_1\)</span>, <span class="math inline">\(\beta_0\)</span>, and <span class="math inline">\(\beta_1\)</span>, we can use a method know as <strong>maximum log-likelihood estimation (MLE)</strong> or optimization. To do this we first need to be able to estimate the log-likelihood of our model on a given set of coefficients and capture histories, basically: what is the log-likelihood of the capture histories we observed given a set of coefficients?</p>
+<p>If we refer back to <a href="#eq-log_likelihood" class="quarto-xref">Equation&nbsp;3</a>, the log-likelihood of all the observed capture histories is equal to the sum of the log-likelihood of each individual capture history <span class="math inline">\(P_i\)</span>. The log–likelihood of the capture history for a given carcass <span class="math inline">\(i\)</span> can be given as the sum of its capture and survival probabilities from its first to last encounter, plus <span class="math inline">\(\chi_i\)</span>: the probability it is not captured after its last release <span class="citation" data-cites="Mcdonald2001">(<a href="#ref-Mcdonald2001" role="doc-biblioref">Mcdonald and Amstrup 2001</a>)</span>. This individual capture history log-likelihood can be represented as:</p>
+<p><span id="eq-indivdual_loglik"><span class="math display">\[ln(P_i)=\sum_{j=first}^{last}[h_{ij}*ln(\hat{p}_{ij})+(1-h_{ij})*ln(1-\hat{p}_{ij})+ln(\hat{\phi}_{j-1,i})]+\chi_i \tag{4}\]</span></span></p>
+<p>Where <span class="math inline">\(h_{ij}\)</span> is 1 if the carcass was observed during <span class="math inline">\(j\)</span>, and 0 otherwise. <span class="math inline">\(\chi_i\)</span> can be represented as:</p>
+<p><span class="math display">\[\chi_i=(1-\hat{\phi}_{last,i})+\prod_{j=last}^n \hat{\phi}_{ij}*(1-\hat{p}_{j+1,i})*(1-\hat{\phi}_{(n-1),i})\]</span></p>
+<p>The first part of <strong>?@eq-chi</strong> <span class="math inline">\((1-\hat{\phi}_{last,i})\)</span> represents the probability the given carcass is removed from the system immediately after its last observation. The second part of <strong>?@eq-chi</strong> is the product of all probabilities that carcass remained in the system but wasn’t observed during all subsequent observation periods.</p>
+<p>Now we have <a href="#eq-indivdual_loglik" class="quarto-xref">Equation&nbsp;4</a> that provides us with the log-likelihood of observing a given capture history with specific survival and capture probabilities. We have also shown that values of <span class="math inline">\(\phi_{ij}\)</span> and <span class="math inline">\(p_{ij}\)</span> can be linearly regressed across the coefficients <span class="math inline">\(\Upsilon_0\)</span>, <span class="math inline">\(\Upsilon_1\)</span>, <span class="math inline">\(\beta_0\)</span>, and <span class="math inline">\(\beta_1\)</span> (<strong>?@eq-logit1</strong> and <strong>?@eq-logittwo</strong>). So now we can plug in values for the coefficients to give us capture and survival probabilities for a given carcass <span class="math inline">\(i\)</span> during period <span class="math inline">\(j\)</span>, which we can put into <a href="#eq-indivdual_loglik" class="quarto-xref">Equation&nbsp;4</a> to give us the log-likelihood of observing the capture history of that carcass using those coefficients. This process can be repeated for each carcass and summed to give us the total log-likelihood of all capture histories for all carcasses in <a href="#eq-log_likelihood" class="quarto-xref">Equation&nbsp;3</a> . We can then repeat this whole process with new coefficient values until we find the coefficients of <strong>?@eq-logit1</strong> and <strong>?@eq-logittwo</strong> that provide us with the <strong>maximum log-likelihood</strong>. For a good explanation of how maximum likelihood works, I highly recommend this YouTube video: <a href="https://www.youtube.com/watch?app=desktop&amp;v=XepXtl9YKwc" class="uri">https://www.youtube.com/watch?app=desktop&amp;v=XepXtl9YKwc</a>, which does a good job summarizing the basic concept.</p>
+<p>Of course, repeating the above steps to find the highest log-likelihood for even just one carcass history would take a long time to do manually, and we need to find the coefficients that will provide the highest likelihood across all of our capture histories and covariates. Fortunately, we can use an optimization algorithm to automate this process, and find the coefficients that produce the maximum likelihood estimation for us. I won’t expand on how MLE optimization algorithms work specifically, but we will be using optimization functions that are available in base R, which will be discussed later.</p>
+<p>Once an optimization algorithm provides us with the coefficients that give us the maximum likelihood of observing our capture history data with the given covariates, we can use it to calculate the capture probability for each carcass (<span class="math inline">\(\hat{p}_{ij}\)</span>) given it’s length and sex. Those probabilities can then be utilized with the Horvitz-Thompson estimator (<a href="#eq-horvitz_thompson" class="quarto-xref">Equation&nbsp;1</a>) to estimate total escapement for each period, and in turn providing an overall escapement estimate.</p>
+</section>
+</section>
+<section id="esc_est-functions" class="level1">
+<h1>esc_est Functions</h1>
+<p>fill</p>
+<section id="b_star" class="level2">
+<h2 class="anchored" data-anchor-id="b_star"><em>B_star</em></h2>
+<p>Calculates <span class="math inline">\(R_j\)</span>, the number of carcasses released with tags during period <span class="math inline">\(j\)</span>, and <span class="math inline">\(n_j\)</span> the number of carcasses captured during <span class="math inline">\(j\)</span>. Utilizes the <code>Horvitz_Thompson()</code> function to estimate <span class="math inline">\(N_j\)</span>. Uses <span class="math inline">\(B1\)</span> and <code>s_hat</code> to calculate <span class="math inline">\(B^{*}_j\)</span>, the number of “births” (new carcasses entering area) between <span class="math inline">\(j\)</span> and <span class="math inline">\(j+1\)</span>.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>s_hat</code>: matrix of survival probability estimates for each carcass <span class="math inline">\(i\)</span> at sampling period <span class="math inline">\(j\)</span>.</p></li>
+<li><p><code>p_hat</code>: matrix of capture probability estimates for each carcass <span class="math inline">\(i\)</span> at sampling period <span class="math inline">\(j\)</span>.</p></li>
+<li><p><code>subsampling_weeks</code>: matrix of weeks in which subsampling occurred.</p></li>
+<li><p><code>observed_per_week</code>: matrix of number of carcasses observed each week. Derived from number tagged each week * sub.sampling.</p></li>
+<li><p><code>tagged_per_week</code>: matrix of number of carcasses tagged each week. Derived as <code>colSums(ch&gt;=1,na.rm=T)</code>.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>Bstar</code>: Estimate of number of “births” between <span class="math inline">\(j\)</span> and <span class="math inline">\(j+1\)</span>.</li>
+</ul>
+</section>
+<section id="cjs_bootstrap" class="level2">
+<h2 class="anchored" data-anchor-id="cjs_bootstrap"><em>CJS_bootstrap</em></h2>
+<p>Bootstrapping function that randomly samples capture history and covariate records to estimate uncertainty, as upper and lower 95% confidence intervals, for the final escapement estimates.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>iterations</code>: number of bootstrap iterations to perform, set by user in app.</p></li>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>cap_X</code>: matrix of capture related covariates.</p></li>
+<li><p><code>surv_X</code>: matrix of survival related covariates.</p></li>
+<li><p><code>ints</code>: confidence intervals, defaults to 95%.</p></li>
+<li><p><code>subsampling_weeks</code>: matrix of weeks in which subsampling occurred.</p></li>
+<li><p><code>observed_per_week</code>: matrix of number of carcasses observed each week. Derived from number tagged each week * sub.sampling.</p></li>
+<li><p><code>tagged_per_week</code>: matrix of number of carcasses tagged each week. Derived as <code>colSums(ch&gt;=1,na.rm=T)</code>.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>results</code>: data frame that contains the log-likelihood, escapement estimate, and processing time for each bootstrap iteration.</li>
+</ul>
+</section>
+<section id="cjs_fit_simple" class="level2">
+<h2 class="anchored" data-anchor-id="cjs_fit_simple"><em>cjs_fit_simple</em></h2>
+<p>Wrapper function that calls model fitting functions for model comparison. Allows user to select best fit model or model of choice for estimate total escapement.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>beta</code>: list of the four model parameters optimized by <code>cpp_optim()</code>.</p></li>
+<li><p><code>cap_X</code>: matrix of capture related covariates.</p></li>
+<li><p><code>surv_X</code>: matrix of survival related covariates.</p></li>
+<li><p><code>ints</code>: confidence intervals, defaults to 95%.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>c_hat</code>: output used in model fitting for estimating QAIC for comparing model fits.</li>
+</ul>
+</section>
+<section id="cjs_model_select_app" class="level2">
+<h2 class="anchored" data-anchor-id="cjs_model_select_app"><em>CJS_model_select_app</em></h2>
+<p>Function that sets model parameters using <code>ch</code> and covariate matrices.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>covars_used</code>: checks uploaded data to see if covariates included.</p></li>
+<li><p><code>sex_matrix</code>: matrix of sex covariate data.</p></li>
+<li><p><code>lengths_matrix</code>: matrix of length covariate data.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li>list with capture histories and covariate matrices for each model possible for available covariates.</li>
+</ul>
+</section>
+<section id="fill_prob_matrices" class="level2">
+<h2 class="anchored" data-anchor-id="fill_prob_matrices"><em>fill_prob_matrices</em></h2>
+<p>Builds matrices of survival and capture probabilities. Called by <code>total_escapement()</code>.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>beta</code>: list of the four model parameters optimized by <code>cpp_optim()</code>.</p></li>
+<li><p><code>cap_X</code>: matrix of capture related covariates.</p></li>
+<li><p><code>surv_X</code>: matrix of survival related covariates.</p></li>
+<li><p><code>ints</code>: confidence intervals, defaults to 95%.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>est_list</code>: list with matrices of estimate capture and survival probabilities for each carcass at each observation point.</li>
+</ul>
+</section>
+<section id="horvitz_thompson" class="level2">
+<h2 class="anchored" data-anchor-id="horvitz_thompson"><em>Horvitz_Thompson</em></h2>
+<p>Uses optimization outputs to estimate escapement for each survey period with <a href="#eq-horvitz_thompson" class="quarto-xref">Equation&nbsp;1</a>.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>p_hat</code>: matrix of capture probability estimates for each carcass <span class="math inline">\(i\)</span> at sampling period <span class="math inline">\(j\)</span>.</p></li>
+<li><p><code>subsampling_weeks</code>: matrix of weeks in which subsampling occurred.</p></li>
+<li><p><code>observed_per_week</code>: matrix of number of carcasses observed each week. Derived from number tagged each week * sub.sampling.</p></li>
+<li><p><code>tagged_per_week</code>: matrix of number of carcasses tagged each week. Derived as <code>colSums(ch&gt;=1,na.rm=T)</code>.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>N_hat</code>: list with estimate of <span class="math inline">\(N_j\)</span> for each observation period. Called by <code>total_escapement()</code> and <code>B_star()</code>.</li>
+</ul>
+</section>
+<section id="pro_capsur" class="level2">
+<h2 class="anchored" data-anchor-id="pro_capsur"><em>pro_capsur</em></h2>
+<p>Produces estimate of capture and survival probabilities for a given carcass <span class="math inline">\(i\)</span> at time <span class="math inline">\(j\)</span>. Called by <code>fill_prob_matrices()</code>.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>i</code>: index for specific carcass record.</p></li>
+<li><p><code>j</code>: index for specific observation/capture period.</p></li>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>beta</code>: list of the four model parameters optimized by <code>cpp_optim()</code>.</p></li>
+<li><p><code>cap_X</code>: matrix of capture related covariates.</p></li>
+<li><p><code>surv_X</code>: matrix of survival related covariates.</p></li>
+<li><p><code>ints</code>: confidence intervals, defaults to 95%.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>est_list</code>: list with matrices of estimate capture and survival probabilities for each carcass at each observation point.</li>
+</ul>
+</section>
+<section id="total_escapement" class="level2">
+<h2 class="anchored" data-anchor-id="total_escapement"><em>total_escapement</em></h2>
+<p>Produces estimate of total escapement for survey period.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>beta</code>: list of the four model parameters optimized by <code>cpp_optim()</code>.</p></li>
+<li><p><code>cap_X</code>: matrix of capture related covariates.</p></li>
+<li><p><code>surv_X</code>: matrix of survival related covariates.</p></li>
+<li><p><code>ints</code>: confidence intervals, defaults to 95%.</p></li>
+<li><p><code>subsampling_weeks</code>: matrix of weeks in which subsampling occurred.</p></li>
+<li><p><code>observed_per_week</code>: matrix of number of carcasses observed each week. Derived from number tagged each week * sub.sampling.</p></li>
+<li><p><code>tagged_per_week</code>: matrix of number of carcasses tagged each week. Derived as <code>colSums(ch&gt;=1,na.rm=T)</code>.</p></li>
+</ul>
+<p><strong>Return:</strong></p>
+<ul>
+<li><code>ans</code>: list with <code>p_hat</code> and <code>s_hat</code> matrices, <code>N_hat</code> for each sampling period, <code>Bstar</code>, and estimate of total escapement for survey period.</li>
+</ul>
+</section>
+<section id="cpp_optim" class="level2">
+<h2 class="anchored" data-anchor-id="cpp_optim"><em>cpp_optim</em></h2>
+<p>Utilizes the base R <code>optim()</code> call within C++ “CJS_functions.cpp” script. Leverages higher speeds of C++ to decrease the optimization time.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><p><code>par</code>: initial default beta parameters of <code>c(0,0,0,0)</code>.</p></li>
+<li><p><code>fn</code>: function to optimize, <code>cpp_CJSwrapper()</code>.</p></li>
+<li><p><code>method</code>: optimizes using the “BFGS” (Broyden–Fletcher–Goldfarb–Shanno) algorithm.</p></li>
+<li><p><code>ch</code>: matrix of capture probabilities.</p></li>
+<li><p><code>cap_X</code>: matrix of capture related covariates.</p></li>
+<li><p><code>surv_X</code>: matrix of survival related covariates.</p></li>
+<li><p><code>ints</code>: confidence intervals, defaults to 95%.</p></li>
+</ul>
+</section>
+</section>
+<section id="comparing-esc_est-to-escapemr" class="level1">
+<h1>Comparing esc_est to escapeMR</h1>
+<p>fill</p>
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-Amstrup2005" class="csl-entry" role="listitem">
+Amstrup, Steven C., Trent L. Mcdonald, and Bryan F. J. Manly. 2005. <em><span class="nocase">Handbook of Capture-Recapture Analysis</span></em>. Princeton Univ. Press. <a href="http://www.jstor.org/stable/j.ctt7sdj6.">http://www.jstor.org/stable/j.ctt7sdj6.</a>
+</div>
+<div id="ref-Ryan2013" class="csl-entry" role="listitem">
+Bergman, Jennifer M., Ryan M. Nielson, and Alice Low. 2013. <span>“<span>CENTRAL VALLEY CHINOOK SALMON IN-RIVER ESCAPEMENT MONITORING PLAN</span>.”</span> <em>Fisheries Branch Administrative Report Number: 2012-1</em>, 12–26.
+</div>
+<div id="ref-Cormack1964" class="csl-entry" role="listitem">
+Cormack, R. M. 1964. <span>“<span class="nocase">Estimates of Survival from the Sighting of Marked Animals</span>.”</span> <em>Biometrika</em> 51 (3): 429–38.
+</div>
+<div id="ref-Horvitz1952" class="csl-entry" role="listitem">
+Horvitz, D. G., and D. J. Thompson. 1952. <span>“<span class="nocase">A Generalization of Sampling Without Replacement From a Finite Universe</span>.”</span> <em>Journal of the American Statistical Association</em> 44 (260): 663–85. <a href="http://www.ncbi.nlm.nih.gov/pubmed/16243365">http://www.ncbi.nlm.nih.gov/pubmed/16243365</a>.
+</div>
+<div id="ref-Jolly1965" class="csl-entry" role="listitem">
+Jolly, G. M. 1965. <span>“<span class="nocase">Explicit Estimates from Capture-Recapture Data with Both Death and Immigration- Stochastic Model</span>.”</span> <em>Biometrika</em> 52 (1): 225–47.
+</div>
+<div id="ref-Lincoln1930" class="csl-entry" role="listitem">
+Lincoln, Frederick C. 1930. <em><span class="nocase">Calculating Waterfowl Abundance on the Basis of Banding Returns</span></em>. Vol. 118. US Department of Agriculture. <a href="https://arxiv.org/abs/arXiv:1011.1669v3">https://arxiv.org/abs/arXiv:1011.1669v3</a>.
+</div>
+<div id="ref-Mcdonald2001" class="csl-entry" role="listitem">
+Mcdonald, Trent L., and Steven C. Amstrup. 2001. <span>“<span class="nocase">Estimation of Population Size Using Open Capture – Recapture Models</span>.”</span> <em>American Statistical Association and the International Biometric Society</em> 6 (2): 206–20.
+</div>
+<div id="ref-Nichols2005" class="csl-entry" role="listitem">
+Nichols, J. D. 2008. <em><span>Modern Open-Population Capture-Recapture Models</span></em>. Edited by Steven C. Amstrup, Trent L. McDonald, and Bryan F. J. Manly. Princeton Univ. Press.
+</div>
+<div id="ref-Petersen1896" class="csl-entry" role="listitem">
+Petersen, C. G. J. 1896. <span>“<span class="nocase">The yearly immigration of young plaice in the Limfjord from the German sea</span>.”</span> <em>Report of the Danish Biological Station</em> 6: 5–84.
+</div>
+<div id="ref-Schnabel1938" class="csl-entry" role="listitem">
+Schnabel, Zoe E. 1938. <span>“<span class="nocase">The Estimation of the Total Fish Population of a Lake</span>.”</span> <em>American Mathematics Monthly</em> 45: 348–52.
+</div>
+<div id="ref-Seber1965" class="csl-entry" role="listitem">
+Seber, G A F. 1965. <span>“<span class="nocase">A Note on the Multiple-Recapture Census Published</span>.”</span> <em>Biometrika</em> 52 (1): 249–59.
+</div>
+</div></section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

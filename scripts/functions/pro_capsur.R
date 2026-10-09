@@ -1,6 +1,25 @@
-##########################################
-#pro_capsur
-##########################################
+#' @title pro_capsur
+#'
+#' @description Produces estimate of capture and survival probabilities for a given
+#' carcass i at time j. Called by fill_prob_matrices().
+#' 
+#' @param i index for specific carcass record.
+#' 
+#' @param j index for specific observation/capture period.
+#' 
+#' @param ch matrix of capture histories.
+#' 
+#' @param beta list of four model parameters drawn from cpp_optim.
+#' 
+#' @param cap_X matrix of capture related covariates.
+#' 
+#' @param surv_X matrix of survival related covariates.
+#' 
+#' @param ints confidence intervals, defaults to 95%.
+#' 
+#' @return list with estimate of p_hat and s_hat for carcass i,at period j.
+#' 
+
 pro_capsur<-function(i,j,ch, beta,cap_X,surv_X,ints){
   nan=nrow(ch)
   ns=ncol(ch)

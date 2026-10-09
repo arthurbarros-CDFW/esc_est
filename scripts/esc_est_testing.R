@@ -3,12 +3,13 @@
 #last update: 09/03/2026
 rm( list = ls()) #clear env
 library(tidyverse)
-library(escapeMR)
 library(Rcpp)
 
 #Load functions
 sapply(list.files("scripts/functions", pattern = "\\.R$", full.names = TRUE), source)
 sourceCpp('scripts/CJS_functions.cpp')
+
+results<-CJS_run()
 
 #get user inputs
 prepped_data<-CJS_data_prep()
@@ -35,14 +36,6 @@ initial_beta=numeric(4)
 model_results=data.frame()
 
 for(i in model_fit$models_ran){
-  #est_escapement = NaN when i=6 (cap~sex, surv~length)
-  #this seems to be because the fill_prob_matrices is producing all 1s for length covariates?
-  #this is produced in the pro_capsur function
-  #seems to be because of exp(cap_beta[1]*1+cap_beta[2]*cap_X[i,j])
-  #the beta parameters are way high when using length
-  #this only seems to happen for this model variant for this data?
-  #note it doesn't happen with Trent's application
-  #skip for now (3/26/2025)
   print(paste("beginning model:",i," (",
               models[i],")",sep=""))
   model_num=i
